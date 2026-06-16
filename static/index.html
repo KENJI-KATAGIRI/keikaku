@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>計画相談支援Manager</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+body { font-family: "Noto Sans JP", sans-serif; }
+.sidebar { width: 240px; min-height: 100vh; }
+@media (max-width: 768px) { .sidebar { width: 100%; min-height: auto; } }
+.card { transition: all 0.2s; }
+.card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
+.alert-overdue { border-left: 4px solid #ef4444; }
+.alert-this-month { border-left: 4px solid #f97316; }
+.alert-next-month { border-left: 4px solid #eab308; }
+.alert-upcoming { border-left: 4px solid #3b82f6; }
+.tab-active { background: #7c3aed; color: white; }
+.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; }
+.modal.show { display: flex; }
+</style>
+</head>
+<body class="bg-gray-100">
+
+<div id="login-page" class="min-h-screen bg-gradient-to-br from-purple-900 to-purple-600 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-bold text-purple-700">計画相談支援Manager</h1>
+      <p class="text-gray-500 mt-2">サービス等利用計画・モニタリング管理</p>
+    </div>
+    <div id="login-form">
+      <div class="mb-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">ユーザーID</label>
+        <input id="login-username" type="text" class="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="ユーザーID">
+      </div>
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 mb-1">パスワード</label>
+        <input id="login-password" type="password" class="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="パスワード">
+      </div>
+      <button onclick="doLogin()" class="w-full bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition">ログイン</button>
+      <p id="login-error" class="text-red-500 text-sm mt-3 text-center hidden"></p>
+      <div class="mt-4 text-center">
+        <span class="text-gray-500 text-sm">アカウントをお持ちでない方は </span>
+        <button onclick="showRegister()" class="text-purple-600 text-sm underline">新規登録</button>
+      </div>
+    </div>
+    <div id="register-form" class="hidden">
+      <div class="mb-3">
+        <label class="block text-sm font-medium text-gray-700 mb-1">事業所名</label>
+        <input id="reg-office" type="text" class="w-full border rounded-lg px-4 py-2" placeholder="○○相談支援事業所">
+      </div>
+      <div class="mb-3">
+        <label class="block text-sm font-medium text-gray-700 mb-1">ユーザーID</label>
+        <input id="reg-username" type="text" class="w-full border rounded-lg px-4 py-2" placeholder="英数字">
+      </div>
+      <div class="mb-3">
+        <label class="block text-sm font-medium text-gray-700 mb-1">メールアドレス</label>
+        <input id="reg-email" type="email" class="w-full border rounded-lg px-4 py-2" placeholder="email@example.com">
+      </div>
+      <div class="mb-6">
+        <label class="block text-sm font-medium text-gray-700 mb-1">パスワード</label>
+        <input id="reg-password" type="password" class="w-full border rounded-lg px-4 py-2" placeholder="8文字以上">
+      </div>
+      <button onclick="doRegister()" class="w-full bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition">登録して開始</button>
+      <div class="mt-4 text-center">
+        <button onclick="showLogin()" class="text-purple-600 text-sm underline">ログインに戻る</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="app" class="hidden flex flex-col md:flex-row min-h-screen">
+  <div class="sidebar bg-purple-900 text-white flex-shrink-0">
+    <div class="p-4 border-b border-purple-700">
+      <h2 class="font-bold text-lg">計画相談支援</h2>
+      <p id="office-name" class="text-purple-300 text-sm"></p>
+    </div>
+    <nav class="p-2">
+      <button onclick="showPage('dashboard')" id="nav-dashboard" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">🏠 ダッシュボード</button>
+      <button onclick="showPage('monitoring')" id="nav-monitoring" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">⏰ モニタリング管理</button>
+      <button onclick="showPage('clients')" id="nav-clients" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">👥 担当ケース管理</button>
+      <button onclick="showPage('plans')" id="nav-plans" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">📋 サービス等利用計画</button>
+      <button onclick="showPage('monitoring-reports')" id="nav-monitoring-reports" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">📊 モニタリング報告書</button>
+      <button onclick="showPage('assessments')" id="nav-assessments" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">📝 アセスメント</button>
+      <button onclick="showPage('conferences')" id="nav-conferences" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">🤝 担当者会議記録</button>
+      <button onclick="showPage('consultations')" id="nav-consultations" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">📞 相談記録</button>
+      <button onclick="showPage('handovers')" id="nav-handovers" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">📌 申し送り</button>
+      <button onclick="showPage('counselors')" id="nav-counselors" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">👤 担当者管理</button>
+      <button onclick="showPage('settings')" id="nav-settings" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">⚙️ 設定</button>
+      <button onclick="doLogout()" class="w-full text-left px-3 py-2 rounded-lg mt-4 text-purple-300 hover:text-white hover:bg-purple-800 transition">🚪 ログアウト</button>
+    </nav>
+  </div>
+  <div class="flex-1 overflow-auto">
+    <!-- Pages -->
+    <!-- Dashboard -->
+    <div id="page-dashboard" class="page p-6">
+      <h2 class="text-2xl font-bold text-gray-800 mb-6">ダッシュボード</h2>
+      <!-- Monitoring Cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-red-500 text-white rounded-xl p-4 card">
+          <div class="text-3xl font-bold" id="dash-overdue">0</div>
+          <div class="text-sm mt-1">モニタリング期限切れ</div>
+        </div>
+        <div class="bg-orange-500 text-white rounded-xl p-4 card">
+          <div class="text-3xl font-bold" id="dash-this-month">0</div>
+          <div class="text-sm mt-1">今月モニタリング</div>
+        </div>
+        <div class="bg-yellow-500 text-white rounded-xl p-4 card">
+          <div class="text-3xl font-bold" id="dash-next-month">0</div>
+          <div class="text-sm mt-1">来月モニタリング</div>
+        </div>
+        <div class="bg-red-600 text-white rounded-xl p-4 card">
+          <div class="text-3xl font-bold" id="dash-jukyusha">0</div>
+          <div class="text-sm mt-1">受給者証期限切れ</div>
+        </div>
+      </div>
+      <!-- Counselor Case Counts -->
+      <div class="bg-white rounded-xl shadow p-4 mb-6">
+        <h3 class="font-bold text-gray-800 mb-3">📊 担当者別件数（39件超は要注意）</h3>
+        <div id="dash-counselors" class="space-y-2"></div>
+      </div>
+      <!-- Quick Links -->
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
+        <div onclick="showPage('monitoring')" class="bg-white rounded-xl shadow p-4 card cursor-pointer border-l-4 border-purple-500">
+          <div class="text-purple-600 font-bold">⏰ モニタリング管理</div>
+          <div class="text-sm text-gray-500">期限アラート一覧</div>
+        </div>
+        <div onclick="showPage('clients')" class="bg-white rounded-xl shadow p-4 card cursor-pointer border-l-4 border-blue-500">
+          <div class="text-blue-600 font-bold">👥 担当ケース</div>
+          <div class="text-sm text-gray-500">利用者一覧・管理</div>
+        </div>
+        <div onclick="showPage('plans')" class="bg-white rounded-xl shadow p-4 card cursor-pointer border-l-4 border-green-500">
+          <div class="text-green-600 font-bold">📋 サービス等利用計画</div>
+          <div class="text-sm text-gray-500">計画書の作成・管理</div>
+        </div>
+      </div>
+    </div>
+    <!-- Monitoring Alerts Page -->
+    <div id="page-monitoring" class="page p-6 hidden">
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">モニタリング管理</h2>
+      <div class="flex gap-2 mb-4">
+        <button onclick="switchMonTab('overdue')" id="mon-tab-overdue" class="px-4 py-2 rounded-lg tab-active">期限切れ</button>
+        <button onclick="switchMonTab('this_month')" id="mon-tab-this_month" class="px-4 py-2 rounded-lg bg-gray-200">今月</button>
+        <button onclick="switchMonTab('next_month')" id="mon-tab-next_month" class="px-4 py-2 rounded-lg bg-gray-200">来月</button>
+        <button onclick="switchMonTab('upcoming')" id="mon-tab-upcoming" class="px-4 py-2 rounded-lg bg-gray-200">3ヶ月以内</button>
+      </div>
+      <div id="monitoring-list" class="space-y-2"></div>
+    </div>
+    <!-- Clients Page -->
+    <div id="page-clients" class="page p-6 hidden">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-gray-800">担当ケース管理</h2>
+        <button onclick="openClientModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">+ 新規登録</button>
+      </div>
+      <div class="flex gap-2 mb-4">
+        <input id="client-search" type="text" placeholder="氏名・カナで検索" class="border rounded-lg px-4 py-2 flex-1">
+        <select id="client-filter-counselor" class="border rounded-lg px-4 py-2">
+          <option value="">全担当者</option>
+        </select>
+        <button onclick="loadClients()" class="bg-gray-200 px-4 py-2 rounded-lg">検索</button>
+      </div>
+      <div id="clients-list" class="overflow-x-auto"></div>
+    </div>
+    <!-- Service Plans Page -->
+    <div id="page-plans" class="page p-6 hidden">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-gray-800">サービス等利用計画</h2>
+        <button onclick="openPlanModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">+ 新規作成</button>
+      </div>
+      <div id="plans-list" class="space-y-2"></div>
+    </div>
+    <!-- Monitoring Reports Page -->
+    <div id="page-monitoring-reports" class="page p-6 hidden">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-gray-800">モニタリング報告書</h2>
+        <button onclick="openMonReportModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">+ 新規作成</button>
+      </div>
+      <div id="monitoring-reports-list" class="space-y-2"></div>
+    </div>
+    <!-- Assessments Page -->
+    <div id="page-assessments" class="page p-6 hidden">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-gray-800">アセスメント</h2>
+        <button onclick="openAssessModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">+ 新規作成</button>
+      </div>
+      <div id="assessments-list" class="space-y-2"></div>
+    </div>
+    <!-- Case Conferences Page -->
+    <div id="page-conferences" class="page p-6 hidden">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-gray-800">担当者会議記録</h2>
+        <button onclick="openConfModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">+ 新規作成</button>
+      </div>
+      <div id="conferences-list" class="space-y-2"></div>
+    </div>
+    <!-- Consultation Records Page -->
+    <div id="page-consultations" class="page p-6 hidden">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-gray-800">相談記録</h2>
+        <button onclick="openConsultModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">+ 新規記録</button>
+      </div>
+      <div id="consultations-list" class="space-y-2"></div>
+    </div>
+    <!-- Handovers Page -->
+    <div id="page-handovers" class="page p-6 hidden">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-gray-800">申し送り</h2>
+        <button onclick="openHandoverModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">+ 追加</button>
+      </div>
+      <div id="handovers-list" class="space-y-2"></div>
+    </div>
+    <!-- Counselors Page -->
+    <div id="page-counselors" class="page p-6 hidden">
+      <div class="flex justify-between items-center mb-4">
+        <h2 class="text-2xl font-bold text-gray-800">担当者管理（相談支援専門員）</h2>
+        <button onclick="openCounselorModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">+ 追加</button>
+      </div>
+      <div id="counselors-list" class="space-y-2"></div>
+    </div>
+    <!-- Settings Page -->
+    <div id="page-settings" class="page p-6 hidden">
+      <h2 class="text-2xl font-bold text-gray-800 mb-4">設定</h2>
+      <div id="settings-info" class="bg-white rounded-xl shadow p-6">
+        <p class="text-gray-600">アカウント情報を読み込み中...</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modals -->
+<div id="modal-client" class="modal items-center justify-center">
+  <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-2xl max-h-screen overflow-y-auto m-4">
+    <h3 class="text-xl font-bold mb-4" id="modal-client-title">利用者登録</h3>
+    <div class="grid grid-cols-2 gap-3">
+      <div><label class="text-sm font-medium">氏名 *</label><input id="c-name" type="text" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">カナ</label><input id="c-kana" type="text" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">性別</label><select id="c-gender" class="w-full border rounded px-3 py-2 mt-1"><option value="">選択</option><option>男性</option><option>女性</option></select></div>
+      <div><label class="text-sm font-medium">生年月日</label><input id="c-birthdate" type="date" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">障害種別</label><input id="c-disability-type" type="text" class="w-full border rounded px-3 py-2 mt-1" placeholder="身体・知的・精神など"></div>
+      <div><label class="text-sm font-medium">障害程度区分</label><input id="c-disability-level" type="text" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">受給者証番号</label><input id="c-jukyusha-no" type="text" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">受給者証有効期限</label><input id="c-jukyusha-valid" type="date" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">主利用サービス</label><input id="c-main-service" type="text" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">担当専門員</label><select id="c-counselor" class="w-full border rounded px-3 py-2 mt-1"><option value="">選択</option></select></div>
+      <div><label class="text-sm font-medium">モニタリング頻度</label><select id="c-monitoring-freq" class="w-full border rounded px-3 py-2 mt-1"><option value="monthly">月1回</option><option value="2months">2ヶ月ごと</option><option value="3months">3ヶ月ごと</option><option value="6months" selected>6ヶ月ごと</option></select></div>
+      <div><label class="text-sm font-medium">次回モニタリング日</label><input id="c-next-monitoring" type="date" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div class="col-span-2"><label class="text-sm font-medium">住所</label><input id="c-address" type="text" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">電話番号</label><input id="c-phone" type="tel" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">家族名</label><input id="c-family-name" type="text" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div class="col-span-2"><label class="text-sm font-medium">備考</label><textarea id="c-notes" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+    </div>
+    <input type="hidden" id="c-id" value="">
+    <div class="flex gap-3 mt-4">
+      <button onclick="saveClient()" class="flex-1 bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700">保存</button>
+      <button onclick="closeModal('modal-client')" class="flex-1 bg-gray-200 py-2 rounded-lg hover:bg-gray-300">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- Counselor Modal -->
+<div id="modal-counselor" class="modal items-center justify-center">
+  <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg m-4">
+    <h3 class="text-xl font-bold mb-4">担当者（相談支援専門員）登録</h3>
+    <div class="space-y-3">
+      <div><label class="text-sm font-medium">氏名 *</label><input id="co-name" type="text" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">カナ</label><input id="co-kana" type="text" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">資格取得日</label><input id="co-cert" type="date" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">更新期限</label><input id="co-renewal" type="date" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div class="flex items-center gap-2"><input id="co-chief" type="checkbox"><label class="text-sm font-medium">管理者</label></div>
+    </div>
+    <input type="hidden" id="co-id" value="">
+    <div class="flex gap-3 mt-4">
+      <button onclick="saveCounselor()" class="flex-1 bg-purple-600 text-white py-2 rounded-lg">保存</button>
+      <button onclick="closeModal('modal-counselor')" class="flex-1 bg-gray-200 py-2 rounded-lg">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- Monitoring Report Modal -->
+<div id="modal-mon-report" class="modal items-center justify-center">
+  <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-xl max-h-screen overflow-y-auto m-4">
+    <h3 class="text-xl font-bold mb-4">モニタリング報告書</h3>
+    <div class="space-y-3">
+      <div><label class="text-sm font-medium">利用者</label><select id="mr-client" class="w-full border rounded px-3 py-2 mt-1"><option value="">選択</option></select></div>
+      <div><label class="text-sm font-medium">担当専門員</label><select id="mr-counselor" class="w-full border rounded px-3 py-2 mt-1"><option value="">選択</option></select></div>
+      <div><label class="text-sm font-medium">モニタリング日 *</label><input id="mr-date" type="date" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">訪問日</label><input id="mr-visit" type="date" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">目標達成度</label><select id="mr-achievement" class="w-full border rounded px-3 py-2 mt-1"><option value="achieved">達成</option><option value="partial" selected>一部達成</option><option value="not_achieved">未達成</option></select></div>
+      <div><label class="text-sm font-medium">満足度</label><select id="mr-satisfaction" class="w-full border rounded px-3 py-2 mt-1"><option value="satisfied">満足</option><option value="normal" selected>普通</option><option value="unsatisfied">不満</option></select></div>
+      <div><label class="text-sm font-medium">サービス利用状況</label><textarea id="mr-status" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+      <div><label class="text-sm font-medium">課題・問題点</label><textarea id="mr-issues" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+      <div><label class="text-sm font-medium">計画変更</label><select id="mr-change" class="w-full border rounded px-3 py-2 mt-1"><option value="no_change" selected>変更なし</option><option value="minor_change">軽微な変更</option><option value="major_change">大幅変更</option></select></div>
+      <div><label class="text-sm font-medium">次回モニタリング予定日</label><input id="mr-next" type="date" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">備考</label><textarea id="mr-notes" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+    </div>
+    <input type="hidden" id="mr-id" value="">
+    <div class="flex gap-3 mt-4">
+      <button onclick="saveMonReport()" class="flex-1 bg-purple-600 text-white py-2 rounded-lg">保存</button>
+      <button onclick="closeModal('modal-mon-report')" class="flex-1 bg-gray-200 py-2 rounded-lg">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- Assessment Modal -->
+<div id="modal-assessment" class="modal items-center justify-center">
+  <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-xl max-h-screen overflow-y-auto m-4">
+    <h3 class="text-xl font-bold mb-4">アセスメント</h3>
+    <div class="space-y-3">
+      <div><label class="text-sm font-medium">利用者</label><select id="as-client" class="w-full border rounded px-3 py-2 mt-1"><option value="">選択</option></select></div>
+      <div><label class="text-sm font-medium">実施日 *</label><input id="as-date" type="date" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">生活状況</label><textarea id="as-living" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+      <div><label class="text-sm font-medium">日常生活</label><textarea id="as-daily" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+      <div><label class="text-sm font-medium">家族支援</label><textarea id="as-family" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+      <div><label class="text-sm font-medium">社会資源</label><textarea id="as-social" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+      <div><label class="text-sm font-medium">本人の強み</label><textarea id="as-strengths" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+      <div><label class="text-sm font-medium">課題</label><textarea id="as-challenges" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+      <div><label class="text-sm font-medium">希望・ニーズ</label><textarea id="as-hopes" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+    </div>
+    <div class="flex gap-3 mt-4">
+      <button onclick="saveAssessment()" class="flex-1 bg-purple-600 text-white py-2 rounded-lg">保存</button>
+      <button onclick="closeModal('modal-assessment')" class="flex-1 bg-gray-200 py-2 rounded-lg">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- Service Plan Modal -->
+<div id="modal-plan" class="modal items-center justify-center">
+  <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-xl max-h-screen overflow-y-auto m-4">
+    <h3 class="text-xl font-bold mb-4">サービス等利用計画</h3>
+    <div class="space-y-3">
+      <div><label class="text-sm font-medium">利用者</label><select id="sp-client" class="w-full border rounded px-3 py-2 mt-1"><option value="">選択</option></select></div>
+      <div><label class="text-sm font-medium">作成日 *</label><input id="sp-date" type="date" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">計画種別</label><select id="sp-type" class="w-full border rounded px-3 py-2 mt-1"><option value="draft">案</option><option value="approved">確定</option><option value="review">見直し</option></select></div>
+      <div><label class="text-sm font-medium">長期目標</label><textarea id="sp-long-goal" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+      <div><label class="text-sm font-medium">短期目標</label><textarea id="sp-short-goal" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+      <div><label class="text-sm font-medium">支援方針</label><textarea id="sp-policy" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+      <div><label class="text-sm font-medium">週間スケジュール</label><textarea id="sp-weekly" class="w-full border rounded px-3 py-2 mt-1" rows="3"></textarea></div>
+    </div>
+    <input type="hidden" id="sp-id" value="">
+    <div class="flex gap-3 mt-4">
+      <button onclick="savePlan()" class="flex-1 bg-purple-600 text-white py-2 rounded-lg">保存</button>
+      <button onclick="closeModal('modal-plan')" class="flex-1 bg-gray-200 py-2 rounded-lg">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- Conference Modal -->
+<div id="modal-conference" class="modal items-center justify-center">
+  <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-xl max-h-screen overflow-y-auto m-4">
+    <h3 class="text-xl font-bold mb-4">担当者会議記録</h3>
+    <div class="space-y-3">
+      <div><label class="text-sm font-medium">利用者</label><select id="cf-client" class="w-full border rounded px-3 py-2 mt-1"><option value="">選択</option></select></div>
+      <div><label class="text-sm font-medium">開催日 *</label><input id="cf-date" type="date" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">場所</label><input id="cf-location" type="text" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">参加者</label><textarea id="cf-attendees" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+      <div><label class="text-sm font-medium">議題</label><textarea id="cf-agenda" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+      <div><label class="text-sm font-medium">議事録</label><textarea id="cf-minutes" class="w-full border rounded px-3 py-2 mt-1" rows="4"></textarea></div>
+    </div>
+    <div class="flex gap-3 mt-4">
+      <button onclick="saveConference()" class="flex-1 bg-purple-600 text-white py-2 rounded-lg">保存</button>
+      <button onclick="closeModal('modal-conference')" class="flex-1 bg-gray-200 py-2 rounded-lg">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- Consultation Modal -->
+<div id="modal-consult" class="modal items-center justify-center">
+  <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-xl max-h-screen overflow-y-auto m-4">
+    <h3 class="text-xl font-bold mb-4">相談記録</h3>
+    <div class="space-y-3">
+      <div><label class="text-sm font-medium">利用者（任意）</label><select id="cs-client" class="w-full border rounded px-3 py-2 mt-1"><option value="">選択</option></select></div>
+      <div><label class="text-sm font-medium">担当専門員</label><select id="cs-counselor" class="w-full border rounded px-3 py-2 mt-1"><option value="">選択</option></select></div>
+      <div><label class="text-sm font-medium">記録日 *</label><input id="cs-date" type="date" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">対応方法</label><select id="cs-method" class="w-full border rounded px-3 py-2 mt-1"><option value="visit">訪問</option><option value="phone">電話</option><option value="office">来所</option><option value="other">その他</option></select></div>
+      <div><label class="text-sm font-medium">相談内容 *</label><textarea id="cs-content" class="w-full border rounded px-3 py-2 mt-1" rows="3"></textarea></div>
+      <div><label class="text-sm font-medium">対応内容</label><textarea id="cs-response" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+      <div><label class="text-sm font-medium">フォローアップ</label><textarea id="cs-followup" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+    </div>
+    <div class="flex gap-3 mt-4">
+      <button onclick="saveConsultation()" class="flex-1 bg-purple-600 text-white py-2 rounded-lg">保存</button>
+      <button onclick="closeModal('modal-consult')" class="flex-1 bg-gray-200 py-2 rounded-lg">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- Handover Modal -->
+<div id="modal-handover" class="modal items-center justify-center">
+  <div class="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-lg m-4">
+    <h3 class="text-xl font-bold mb-4">申し送り</h3>
+    <div class="space-y-3">
+      <div><label class="text-sm font-medium">スタッフ名 *</label><input id="hw-staff" type="text" class="w-full border rounded px-3 py-2 mt-1"></div>
+      <div><label class="text-sm font-medium">内容 *</label><textarea id="hw-content" class="w-full border rounded px-3 py-2 mt-1" rows="4"></textarea></div>
+      <div><label class="text-sm font-medium">優先度</label><select id="hw-priority" class="w-full border rounded px-3 py-2 mt-1"><option value="low">低</option><option value="normal" selected>普通</option><option value="high">高</option><option value="urgent">緊急</option></select></div>
+    </div>
+    <div class="flex gap-3 mt-4">
+      <button onclick="saveHandover()" class="flex-1 bg-purple-600 text-white py-2 rounded-lg">保存</button>
+      <button onclick="closeModal('modal-handover')" class="flex-1 bg-gray-200 py-2 rounded-lg">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const BASE = "/keikaku";
+let token = localStorage.getItem("keikaku_token") || "";
+let officeName = localStorage.getItem("keikaku_office") || "";
+let counselorsList = [];
+let clientsList = [];
+let monitoringAlerts = {};
+let currentMonTab = "overdue";
+
+function api(path, method="GET", body=null) {
+  const opts = { method, headers: { "Content-Type":"application/json", "Authorization":"Bearer "+token } };
+  if (body) opts.body = JSON.stringify(body);
+  return fetch(BASE+path, opts).then(r => {
+    if (r.status===401) { doLogout(); return; }
+    if (!r.ok) return r.json().then(e => { throw e; });
+    return r.json();
+  });
+}
+
+function showLogin() {
+  document.getElementById("login-form").classList.remove("hidden");
+  document.getElementById("register-form").classList.add("hidden");
+}
+
+function showRegister() {
+  document.getElementById("login-form").classList.add("hidden");
+  document.getElementById("register-form").classList.remove("hidden");
+}
+
+async function doLogin() {
+  const u = document.getElementById("login-username").value;
+  const p = document.getElementById("login-password").value;
+  try {
+    const d = await api("/api/login", "POST", {username:u, password:p});
+    token = d.token; officeName = d.office_name;
+    localStorage.setItem("keikaku_token", token);
+    localStorage.setItem("keikaku_office", officeName);
+    showApp();
+  } catch(e) {
+    const el = document.getElementById("login-error");
+    el.textContent = "ログインに失敗しました"; el.classList.remove("hidden");
+  }
+}
+
+async function doRegister() {
+  const d = await api("/api/register", "POST", {
+    username: document.getElementById("reg-username").value,
+    office_name: document.getElementById("reg-office").value,
+    email: document.getElementById("reg-email").value,
+    password: document.getElementById("reg-password").value
+  });
+  token = d.token; officeName = d.office_name;
+  localStorage.setItem("keikaku_token", token);
+  localStorage.setItem("keikaku_office", officeName);
+  showApp();
+}
+
+function doLogout() {
+  token = ""; officeName = "";
+  localStorage.removeItem("keikaku_token");
+  localStorage.removeItem("keikaku_office");
+  document.getElementById("app").classList.add("hidden");
+  document.getElementById("login-page").classList.remove("hidden");
+}
+
+function showApp() {
+  document.getElementById("login-page").classList.add("hidden");
+  document.getElementById("app").classList.remove("hidden");
+  document.getElementById("office-name").textContent = officeName;
+  loadCounselors();
+  loadClients();
+  showPage("dashboard");
+}
+
+function showPage(page) {
+  document.querySelectorAll(".page").forEach(p => p.classList.add("hidden"));
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("bg-purple-700"));
+  const el = document.getElementById("page-"+page);
+  const nb = document.getElementById("nav-"+page);
+  if (el) el.classList.remove("hidden");
+  if (nb) nb.classList.add("bg-purple-700");
+  if (page==="dashboard") loadDashboard();
+  if (page==="monitoring") loadMonitoringAlerts();
+  if (page==="clients") loadClients();
+  if (page==="plans") loadPlans();
+  if (page==="monitoring-reports") loadMonReports();
+  if (page==="assessments") loadAssessments();
+  if (page==="conferences") loadConferences();
+  if (page==="consultations") loadConsultations();
+  if (page==="handovers") loadHandovers();
+  if (page==="counselors") loadCounselors();
+  if (page==="settings") loadSettings();
+}
+
+function openModal(id) { document.getElementById(id).classList.add("show"); }
+function closeModal(id) { document.getElementById(id).classList.remove("show"); }
+async function loadDashboard(){const d=await api("/api/dashboard").catch(e=>null);if(!d)return;document.getElementById("dash-overdue").textContent=d.monitoring_overdue_count;document.getElementById("dash-this-month").textContent=d.this_month_monitoring;document.getElementById("dash-next-month").textContent=d.next_month_monitoring;document.getElementById("dash-jukyusha").textContent=d.jukyusha_expired_count;const el=document.getElementById("dash-counselors");el.innerHTML=d.counselor_counts.length===0?"<p>担当者未登録</p>":d.counselor_counts.map(c=>{const cl=c.over_limit?"bg-red-100 border-red-300":"bg-green-50 border-green-300";const tc=c.over_limit?"text-red-600":"text-green-600";return "<div class=flex items-center justify-between p-3 rounded-lg border "+cl+"><span class=font-medium>"+c.counselor_name+(c.over_limit?"<span class=ml-2 text-xs bg-red-500 text-white px-1 rounded>超過</span>":"")+"</span><span class=text-xl font-bold "+tc+">"+c.count+"/39</span></div>";}).join("");}
+async function loadCounselors(){counselorsList=await api("/api/counselors").catch(e=>[]);renderCounselors();populateCounselorSelects();}
+function renderCounselors(){const el=document.getElementById("counselors-list");if(!el)return;el.innerHTML=counselorsList.length===0?"<p class=text-gray-500>担当者未登録</p>":counselorsList.map(c=>"<div class=bg-white rounded-lg shadow p-4 flex items-center justify-between><div><span class=font-bold>"+c.name+"</span><span class=text-sm text-gray-500 ml-2>"+c.kana+"</span>"+(c.is_chief?"<span class=ml-2 bg-purple-100 text-purple-700 text-xs px-2 rounded>管理者</span>":"")+"</div><div class=flex gap-2><button onclick=editCounselor("+c.id+") class=text-blue-600 hover:underline>編集</button><button onclick=deleteCounselor("+c.id+") class=text-red-500 hover:underline>削除</button></div></div>").join("");}
+function populateCounselorSelects(){const opts="<option value=>"+"選択</option>"+counselorsList.map(c=>"<option value="+c.id+">"+c.name+"</option>").join("");["c-counselor","mr-counselor","cs-counselor","client-filter-counselor"].forEach(id=>{const s=document.getElementById(id);if(s){s.innerHTML=opts;}});}
+async function loadClients(){const s=document.getElementById("client-search");const f=document.getElementById("client-filter-counselor");const params=new URLSearchParams();if(s&&s.value)params.append("search",s.value);if(f&&f.value)params.append("counselor_id",f.value);clientsList=await api("/api/clients?"+params.toString()).catch(e=>[]);const el=document.getElementById("clients-list");if(!el)return;el.innerHTML=clientsList.length===0?"<p class=text-gray-500 p-4>利用者未登録</p>":"<table class=w-full text-sm><thead><tr class=bg-gray-100><th class=p-2 text-left>氏名</th><th class=p-2 text-left>担当</th><th class=p-2 text-left>主サービス</th><th class=p-2 text-left>次回モニタリング</th><th class=p-2 text-left>受給者証期限</th><th class=p-2>操作</th></tr></thead><tbody>"+clientsList.map(c=>{const nd=c.next_monitoring_date;const ndc=nd&&nd<new Date().toISOString().slice(0,10)?"text-red-600 font-bold":"";return"<tr class=border-b hover:bg-gray-50><td class=p-2><span class=font-medium>"+c.name+"</span><br><span class=text-gray-400>"+c.kana+"</span></td><td class=p-2>"+( c.counselor_name||"未割当")+"</td><td class=p-2>"+c.main_service+"</td><td class=\"p-2 "+ndc+"\">"+( nd||"-")+"</td><td class=p-2>"+( c.jukyusha_valid_to||"-")+"</td><td class=p-2 text-center><button onclick=editClient("+c.id+") class=text-blue-600 hover:underline mr-2>編集</button><button onclick=deleteClient("+c.id+") class=text-red-500 hover:underline>削除</button></td></tr>";}).join("")+"</tbody></table>";populateClientSelects();}
+function populateClientSelects(){const opts="<option value=>"+"選択</option>"+clientsList.map(c=>"<option value="+c.id+">"+c.name+"</option>").join("");["mr-client","as-client","sp-client","cf-client","cs-client"].forEach(id=>{const s=document.getElementById(id);if(s)s.innerHTML=opts;});}
+async function loadMonitoringAlerts(){monitoringAlerts=await api("/api/monitoring-alerts").catch(e=>({}));renderMonitoringAlerts();}
+function switchMonTab(tab){currentMonTab=tab;["overdue","this_month","next_month","upcoming"].forEach(t=>{const b=document.getElementById("mon-tab-"+t);if(b){b.classList.toggle("tab-active",t===tab);b.classList.toggle("bg-gray-200",t!==tab);}});renderMonitoringAlerts();}
+function renderMonitoringAlerts(){const el=document.getElementById("monitoring-list");if(!el)return;const items=monitoringAlerts[currentMonTab]||[];const cls={overdue:"alert-overdue",this_month:"alert-this-month",next_month:"alert-next-month",upcoming:"alert-upcoming"};el.innerHTML=items.length===0?"<p class=text-gray-500 p-4>対象なし</p>":items.map(a=>{const days=a.days_until;const dayStr=days===null?"": days<0?"<span class=text-red-600 font-bold>"+Math.abs(days)+"日超過</span>":"<span class=text-orange-600>"+days+"日後</span>";return"<div class=bg-white rounded-lg shadow p-4 "+cls[currentMonTab]+"><div class=flex items-center justify-between><div><span class=font-bold text-lg>"+a.client_name+"</span><span class=text-gray-500 text-sm ml-2>担当: "+( a.counselor_name||"-")+"</span></div><div class=text-right><div class=text-sm text-gray-600>次回: "+a.next_monitoring_date+"</div><div>"+dayStr+"</div></div></div></div>";}).join("");}
+function openClientModal(id=null){document.getElementById("c-id").value=id||"";document.getElementById("modal-client-title").textContent=id?"利用者編集":"利用者登録";["c-name","c-kana","c-address","c-phone","c-family-name","c-disability-type","c-disability-level","c-jukyusha-no","c-main-service"].forEach(i=>{const e=document.getElementById(i);if(e)e.value="";});["c-birthdate","c-jukyusha-valid","c-next-monitoring"].forEach(i=>{const e=document.getElementById(i);if(e)e.value="";});document.getElementById("c-gender").value="";document.getElementById("c-counselor").value="";document.getElementById("c-monitoring-freq").value="6months";document.getElementById("c-notes").value="";if(id){const c=clientsList.find(x=>x.id===id);if(c){document.getElementById("c-name").value=c.name||"";document.getElementById("c-kana").value=c.kana||"";document.getElementById("c-gender").value=c.gender||"";document.getElementById("c-birthdate").value=c.birthdate||"";document.getElementById("c-disability-type").value=c.disability_type||"";document.getElementById("c-disability-level").value=c.disability_level||"";document.getElementById("c-jukyusha-no").value=c.jukyusha_no||"";document.getElementById("c-jukyusha-valid").value=c.jukyusha_valid_to||"";document.getElementById("c-address").value=c.address||"";document.getElementById("c-phone").value=c.phone||"";document.getElementById("c-family-name").value=c.family_name||"";document.getElementById("c-main-service").value=c.main_service||"";document.getElementById("c-counselor").value=c.counselor_id||"";document.getElementById("c-monitoring-freq").value=c.monitoring_frequency||"6months";document.getElementById("c-next-monitoring").value=c.next_monitoring_date||"";document.getElementById("c-notes").value=c.notes||"";}};openModal("modal-client");}
+async function saveClient(){const id=document.getElementById("c-id").value;const body={name:document.getElementById("c-name").value,kana:document.getElementById("c-kana").value,gender:document.getElementById("c-gender").value,birthdate:document.getElementById("c-birthdate").value,disability_type:document.getElementById("c-disability-type").value,disability_level:document.getElementById("c-disability-level").value,jukyusha_no:document.getElementById("c-jukyusha-no").value,jukyusha_valid_to:document.getElementById("c-jukyusha-valid").value,address:document.getElementById("c-address").value,phone:document.getElementById("c-phone").value,family_name:document.getElementById("c-family-name").value,main_service:document.getElementById("c-main-service").value,counselor_id:document.getElementById("c-counselor").value||null,monitoring_frequency:document.getElementById("c-monitoring-freq").value,next_monitoring_date:document.getElementById("c-next-monitoring").value,notes:document.getElementById("c-notes").value};if(id)await api("/api/clients/"+id,"PUT",body);else await api("/api/clients","POST",body);closeModal("modal-client");loadClients();}
+function editClient(id){openClientModal(id);}
+async function deleteClient(id){if(!confirm("削除しますか？"))return;await api("/api/clients/"+id,"DELETE");loadClients();}
+function openCounselorModal(id=null){document.getElementById("co-id").value=id||"";["co-name","co-kana"].forEach(i=>{document.getElementById(i).value="";});["co-cert","co-renewal"].forEach(i=>{document.getElementById(i).value="";});document.getElementById("co-chief").checked=false;if(id){const c=counselorsList.find(x=>x.id===id);if(c){document.getElementById("co-name").value=c.name||"";document.getElementById("co-kana").value=c.kana||"";document.getElementById("co-cert").value=c.cert_acquired||"";document.getElementById("co-renewal").value=c.cert_next_renewal||"";document.getElementById("co-chief").checked=!!c.is_chief;}};openModal("modal-counselor");}
+async function saveCounselor(){const id=document.getElementById("co-id").value;const body={name:document.getElementById("co-name").value,kana:document.getElementById("co-kana").value,cert_acquired:document.getElementById("co-cert").value,cert_next_renewal:document.getElementById("co-renewal").value,is_chief:document.getElementById("co-chief").checked?1:0};if(id)await api("/api/counselors/"+id,"PUT",body);else await api("/api/counselors","POST",body);closeModal("modal-counselor");loadCounselors();}
+function editCounselor(id){openCounselorModal(id);}
+async function deleteCounselor(id){if(!confirm("削除しますか？"))return;await api("/api/counselors/"+id,"DELETE");loadCounselors();}
+async function loadPlans(){const data=await api("/api/service-plans").catch(e=>[]);const el=document.getElementById("plans-list");if(!el)return;el.innerHTML=data.length===0?"<p class=text-gray-500>計画書未作成</p>":data.map(p=>"<div class=bg-white rounded-lg shadow p-4><div class=flex justify-between items-center><div><span class=font-bold>"+p.client_name+"</span><span class=ml-2 text-gray-500 text-sm>"+p.created_date+"</span><span class=ml-2 bg-purple-100 text-purple-700 text-xs px-2 rounded>"+p.plan_type+"</span></div></div><div class=text-sm text-gray-600 mt-2>長期目標: "+p.long_term_goal+"</div></div>").join("");}
+function openPlanModal(){populateClientSelects();document.getElementById("sp-id").value="";document.getElementById("sp-date").value=new Date().toISOString().slice(0,10);["sp-long-goal","sp-short-goal","sp-policy","sp-weekly"].forEach(i=>document.getElementById(i).value="");document.getElementById("sp-type").value="draft";openModal("modal-plan");}
+async function savePlan(){const id=document.getElementById("sp-id").value;const body={client_id:document.getElementById("sp-client").value,plan_type:document.getElementById("sp-type").value,created_date:document.getElementById("sp-date").value,long_term_goal:document.getElementById("sp-long-goal").value,short_term_goal:document.getElementById("sp-short-goal").value,support_policy:document.getElementById("sp-policy").value,weekly_schedule:document.getElementById("sp-weekly").value};if(id)await api("/api/service-plans/"+id,"PUT",body);else await api("/api/service-plans","POST",body);closeModal("modal-plan");loadPlans();}
+async function loadMonReports(){const data=await api("/api/monitoring-reports").catch(e=>[]);const el=document.getElementById("monitoring-reports-list");if(!el)return;el.innerHTML=data.length===0?"<p class=text-gray-500>報告書未作成</p>":data.map(r=>"<div class=bg-white rounded-lg shadow p-4><div class=flex justify-between><div><span class=font-bold>"+r.client_name+"</span><span class=ml-2 text-gray-500 text-sm>"+r.monitor_date+"</span></div><span class=text-sm>担当: "+( r.counselor_name||"-")+"</span></div><div class=text-sm text-gray-600 mt-2>達成度: "+r.goal_achievement+" / 次回: "+( r.next_monitoring||"-")+"</div></div>").join("");}
+function openMonReportModal(){populateClientSelects();document.getElementById("mr-id").value="";document.getElementById("mr-date").value=new Date().toISOString().slice(0,10);["mr-status","mr-issues","mr-notes"].forEach(i=>document.getElementById(i).value="");openModal("modal-mon-report");}
+async function saveMonReport(){const id=document.getElementById("mr-id").value;const body={client_id:document.getElementById("mr-client").value,monitor_date:document.getElementById("mr-date").value,visit_date:document.getElementById("mr-visit").value,counselor_id:document.getElementById("mr-counselor").value||null,goal_achievement:document.getElementById("mr-achievement").value,satisfaction:document.getElementById("mr-satisfaction").value,service_status:document.getElementById("mr-status").value,issues:document.getElementById("mr-issues").value,plan_change:document.getElementById("mr-change").value,next_monitoring:document.getElementById("mr-next").value,notes:document.getElementById("mr-notes").value};if(id)await api("/api/monitoring-reports/"+id,"PUT",body);else await api("/api/monitoring-reports","POST",body);closeModal("modal-mon-report");loadMonReports();}
+async function loadAssessments(){const data=await api("/api/assessments").catch(e=>[]);const el=document.getElementById("assessments-list");if(!el)return;el.innerHTML=data.length===0?"<p class=text-gray-500>アセスメント未作成</p>":data.map(a=>"<div class=bg-white rounded-lg shadow p-4><div class=flex justify-between><span class=font-bold>"+a.client_name+"</span><span class=text-gray-500 text-sm>"+a.assess_date+"</span></div><div class=text-sm text-gray-600 mt-2>強み: "+a.strengths+"</div></div>").join("");}
+function openAssessModal(){populateClientSelects();document.getElementById("as-date").value=new Date().toISOString().slice(0,10);["as-living","as-daily","as-family","as-social","as-strengths","as-challenges","as-hopes"].forEach(i=>document.getElementById(i).value="");openModal("modal-assessment");}
+async function saveAssessment(){const body={client_id:document.getElementById("as-client").value,assess_date:document.getElementById("as-date").value,living_situation:document.getElementById("as-living").value,daily_life:document.getElementById("as-daily").value,family_support:document.getElementById("as-family").value,social_resources:document.getElementById("as-social").value,strengths:document.getElementById("as-strengths").value,challenges:document.getElementById("as-challenges").value,hopes:document.getElementById("as-hopes").value};await api("/api/assessments","POST",body);closeModal("modal-assessment");loadAssessments();}
+async function loadConferences(){const data=await api("/api/case-conferences").catch(e=>[]);const el=document.getElementById("conferences-list");if(!el)return;el.innerHTML=data.length===0?"<p class=text-gray-500>会議記録未登録</p>":data.map(c=>"<div class=bg-white rounded-lg shadow p-4><div class=flex justify-between><span class=font-bold>"+c.client_name+"</span><span class=text-gray-500 text-sm>"+c.conference_date+"</span></div><div class=text-sm text-gray-600 mt-2>"+c.location+" - 参加者: "+c.attendees+"</div></div>").join("");}
+function openConfModal(){populateClientSelects();document.getElementById("cf-date").value=new Date().toISOString().slice(0,10);["cf-location","cf-attendees","cf-agenda","cf-minutes"].forEach(i=>document.getElementById(i).value="");openModal("modal-conference");}
+async function saveConference(){const body={client_id:document.getElementById("cf-client").value,conference_date:document.getElementById("cf-date").value,location:document.getElementById("cf-location").value,attendees:document.getElementById("cf-attendees").value,agenda:document.getElementById("cf-agenda").value,minutes:document.getElementById("cf-minutes").value};await api("/api/case-conferences","POST",body);closeModal("modal-conference");loadConferences();}
+async function loadConsultations(){const data=await api("/api/consultation-records").catch(e=>[]);const el=document.getElementById("consultations-list");if(!el)return;el.innerHTML=data.length===0?"<p class=text-gray-500>相談記録未登録</p>":data.map(r=>"<div class=bg-white rounded-lg shadow p-4><div class=flex justify-between><div><span class=font-bold>"+( r.client_name||"-")+"</span><span class=ml-2 text-gray-500 text-sm>"+r.record_date+"</span></div><span class=text-sm>"+r.method+"</span></div><div class=text-sm text-gray-700 mt-2>"+r.content+"</div></div>").join("");}
+function openConsultModal(){populateClientSelects();document.getElementById("cs-date").value=new Date().toISOString().slice(0,10);["cs-content","cs-response","cs-followup"].forEach(i=>document.getElementById(i).value="");openModal("modal-consult");}
+async function saveConsultation(){const body={client_id:document.getElementById("cs-client").value||null,record_date:document.getElementById("cs-date").value,counselor_id:document.getElementById("cs-counselor").value||null,method:document.getElementById("cs-method").value,content:document.getElementById("cs-content").value,response:document.getElementById("cs-response").value,followup:document.getElementById("cs-followup").value};await api("/api/consultation-records","POST",body);closeModal("modal-consult");loadConsultations();}
+async function loadHandovers(){const data=await api("/api/handovers").catch(e=>[]);const el=document.getElementById("handovers-list");if(!el)return;const pc={low:"bg-gray-100",normal:"bg-blue-50 border-blue-200",high:"bg-orange-50 border-orange-200",urgent:"bg-red-50 border-red-200"};el.innerHTML=data.length===0?"<p class=text-gray-500>申し送りなし</p>":data.map(h=>"<div class=\"bg-white rounded-lg shadow p-4 border-l-4 "+( pc[h.priority]||"")+"\"><div class=flex justify-between items-center><div><span class=font-bold>"+h.staff_name+"</span><span class=text-gray-500 text-sm ml-2>"+h.created_at+"</span></div>"+(h.is_read?"":"<button onclick=markRead("+h.id+") class=text-xs bg-purple-600 text-white px-2 py-1 rounded>既読</button>")+"</div><div class=text-gray-700 mt-2>"+h.content+"</div></div>").join("");}
+function openHandoverModal(){document.getElementById("hw-staff").value="";document.getElementById("hw-content").value="";document.getElementById("hw-priority").value="normal";openModal("modal-handover");}
+async function saveHandover(){await api("/api/handovers","POST",{staff_name:document.getElementById("hw-staff").value,content:document.getElementById("hw-content").value,priority:document.getElementById("hw-priority").value});closeModal("modal-handover");loadHandovers();}
+async function markRead(id){await api("/api/handovers/"+id+"/read","PATCH");loadHandovers();}
+async function loadSettings(){const d=await api("/api/me").catch(e=>null);const el=document.getElementById("settings-info");if(!el)return;if(!d){el.innerHTML="<p>読込失敗</p>";return;}el.innerHTML="<dl class=space-y-3><dt class=font-medium text-gray-700>事業所名</dt><dd>"+d.office_name+"</dd><dt class=font-medium text-gray-700>ユーザーID</dt><dd>"+d.username+"</dd><dt class=font-medium text-gray-700>メール</dt><dd>"+d.email+"</dd><dt class=font-medium text-gray-700>プラン</dt><dd>"+d.plan+"</dd><dt class=font-medium text-gray-700>ステータス</dt><dd>"+d.subscription_status+"</dd><dt class=font-medium text-gray-700>トライアル期限</dt><dd>"+( d.trial_end||"N/A")+"</dd></dl>";}
+
+if(token){showApp();}
+</script>
+</body>
+</html>
