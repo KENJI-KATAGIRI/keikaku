@@ -87,6 +87,9 @@ body { font-family: "Noto Sans JP", sans-serif; }
       <button onclick="showPage('handovers')" id="nav-handovers" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">📌 申し送り</button>
       <button onclick="showPage('counselors')" id="nav-counselors" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">👤 担当者管理</button>
       <button onclick="showPage('settings')" id="nav-settings" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">⚙️ 設定</button>
+      <div class="border-t border-purple-700 my-2"></div>
+      <button onclick="showPage('bcp')" id="nav-bcp" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">🛡️ BCP・虐待防止</button>
+      <button onclick="showPage('kasan')" id="nav-kasan" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">💴 加算管理</button>
       <button onclick="doLogout()" class="w-full text-left px-3 py-2 rounded-lg mt-4 text-purple-300 hover:text-white hover:bg-purple-800 transition">🚪 ログアウト</button>
     </nav>
   </div>
@@ -218,6 +221,171 @@ body { font-family: "Noto Sans JP", sans-serif; }
       <div id="counselors-list" class="space-y-2"></div>
     </div>
     <!-- Settings Page -->
+    <div id="page-bcp" class="page p-6 hidden">
+      <!-- Compliance Alerts -->
+      <div id="kk-compliance-alerts" class="mb-4"></div>
+      <!-- BCP Cards -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+        <div id="kk-bcp-card-infection" class="bg-white rounded-xl shadow p-5 border-l-4 border-red-400">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="font-bold text-gray-900">感染症BCP</h3>
+            <span id="kk-bcp-badge-infection" class="text-xs px-3 py-1 rounded-full bg-red-100 text-red-700 font-medium">未策定</span>
+          </div>
+          <div id="kk-bcp-info-infection" class="text-sm text-red-600 mb-3">未策定です。速やかに策定してください（-1%減算）</div>
+          <button onclick="openKkBcpModal('infection')" class="w-full bg-purple-700 text-white py-2 rounded-lg text-sm font-medium hover:bg-purple-600 transition">更新・記録する</button>
+        </div>
+        <div id="kk-bcp-card-disaster" class="bg-white rounded-xl shadow p-5 border-l-4 border-red-400">
+          <div class="flex justify-between items-center mb-3">
+            <h3 class="font-bold text-gray-900">自然災害BCP</h3>
+            <span id="kk-bcp-badge-disaster" class="text-xs px-3 py-1 rounded-full bg-red-100 text-red-700 font-medium">未策定</span>
+          </div>
+          <div id="kk-bcp-info-disaster" class="text-sm text-red-600 mb-3">未策定です。速やかに策定してください（-1%減算）</div>
+          <button onclick="openKkBcpModal('disaster')" class="w-full bg-purple-700 text-white py-2 rounded-lg text-sm font-medium hover:bg-purple-600 transition">更新・記録する</button>
+        </div>
+      </div>
+      <!-- 虐待防止 -->
+      <div class="bg-white rounded-xl shadow p-5 mb-6">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="font-bold text-gray-900">🚫 虐待防止措置</h3>
+          <button onclick="openKkAbuseModal()" class="bg-purple-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-600 transition">+ 記録を追加</button>
+        </div>
+        <div class="grid grid-cols-3 gap-3 mb-4">
+          <div class="bg-gray-50 rounded-lg p-3 text-center">
+            <div class="text-2xl mb-1">🏛️</div>
+            <div class="text-xs text-gray-500">委員会開催</div>
+            <div id="kk-abuse-committee-badge" class="text-xs mt-1 text-red-500 font-medium">未実施</div>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3 text-center">
+            <div class="text-2xl mb-1">📚</div>
+            <div class="text-xs text-gray-500">研修実施</div>
+            <div id="kk-abuse-training-badge" class="text-xs mt-1 text-red-500 font-medium">未実施</div>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3 text-center">
+            <div class="text-2xl mb-1">📋</div>
+            <div class="text-xs text-gray-500">指針整備</div>
+            <div id="kk-abuse-policy-badge" class="text-xs mt-1 text-red-500 font-medium">未確認</div>
+          </div>
+        </div>
+        <div id="kk-abuse-list" class="text-sm text-gray-500">読み込み中...</div>
+      </div>
+      <!-- 研修・訓練記録 -->
+      <div class="bg-white rounded-xl shadow p-5">
+        <div class="flex justify-between items-center mb-4">
+          <h3 class="font-bold text-gray-900">📅 BCP研修・訓練記録</h3>
+          <button onclick="openKkTrainingModal()" class="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-500 transition">+ 記録を追加</button>
+        </div>
+        <div id="kk-training-list" class="text-sm text-gray-500">読み込み中...</div>
+      </div>
+
+      <!-- BCP Modal -->
+      <div id="kk-bcp-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl p-6 w-96 max-w-full mx-4 shadow-2xl">
+          <h3 id="kk-bcp-modal-title" class="font-bold text-gray-900 text-lg mb-4">BCP記録</h3>
+          <input type="hidden" id="kk-bcp-type-val">
+          <div class="mb-3"><label class="text-sm text-gray-600">策定状況</label>
+            <select id="kk-bcp-is-created" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm">
+              <option value="0">未策定</option><option value="1">策定済み</option></select></div>
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <div><label class="text-sm text-gray-600">策定日</label>
+              <input type="date" id="kk-bcp-created-date" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+            <div><label class="text-sm text-gray-600">最終見直し日</label>
+              <input type="date" id="kk-bcp-review-date" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+          </div>
+          <div class="mb-3"><label class="text-sm text-gray-600">次回見直し予定日</label>
+            <input type="date" id="kk-bcp-next-date" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+          <div class="mb-3"><label class="text-sm text-gray-600">担当者名</label>
+            <input type="text" id="kk-bcp-staff" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm" placeholder="例: 山本 相談一"></div>
+          <div class="mb-5"><label class="text-sm text-gray-600">備考</label>
+            <textarea id="kk-bcp-notes" rows="2" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm resize-none"></textarea></div>
+          <div class="flex gap-3">
+            <button onclick="saveKkBcp()" class="flex-1 bg-purple-700 text-white py-2 rounded-lg font-medium hover:bg-purple-600 transition">保存</button>
+            <button onclick="document.getElementById('kk-bcp-modal').classList.add('hidden')" class="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg hover:bg-gray-200 transition">キャンセル</button>
+          </div>
+        </div>
+      </div>
+      <!-- 虐待防止 Modal -->
+      <div id="kk-abuse-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl p-6 w-96 max-w-full mx-4 shadow-2xl">
+          <h3 class="font-bold text-gray-900 text-lg mb-4">虐待防止記録を追加</h3>
+          <div class="mb-3"><label class="text-sm text-gray-600">記録種別</label>
+            <select id="kk-abuse-type" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm">
+              <option value="committee">虐待防止委員会の開催</option>
+              <option value="training">虐待防止研修の実施</option>
+              <option value="policy">虐待防止指針の整備・確認</option>
+              <option value="manager">虐待防止担当者の選定</option></select></div>
+          <div class="mb-3"><label class="text-sm text-gray-600">実施日</label>
+            <input type="date" id="kk-abuse-date" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+          <div class="mb-3"><label class="text-sm text-gray-600">出席者・参加者</label>
+            <input type="text" id="kk-abuse-attendees" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm" placeholder="例: 山本 相談一、中村 相談子"></div>
+          <div class="mb-3"><label class="text-sm text-gray-600">内容・議題</label>
+            <textarea id="kk-abuse-content" rows="3" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm resize-none"></textarea></div>
+          <div class="mb-5"><label class="text-sm text-gray-600">次回予定日</label>
+            <input type="date" id="kk-abuse-next" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+          <div class="flex gap-3">
+            <button onclick="saveKkAbuse()" class="flex-1 bg-purple-700 text-white py-2 rounded-lg font-medium hover:bg-purple-600 transition">保存</button>
+            <button onclick="document.getElementById('kk-abuse-modal').classList.add('hidden')" class="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg hover:bg-gray-200 transition">キャンセル</button>
+          </div>
+        </div>
+      </div>
+      <!-- 研修訓練 Modal -->
+      <div id="kk-training-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl p-6 w-96 max-w-full mx-4 shadow-2xl">
+          <h3 class="font-bold text-gray-900 text-lg mb-4">研修・訓練記録を追加</h3>
+          <div class="mb-3"><label class="text-sm text-gray-600">種別</label>
+            <select id="kk-tr-category" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm">
+              <option value="infection">感染症BCP</option>
+              <option value="disaster">自然災害BCP</option>
+              <option value="abuse">虐待防止</option></select></div>
+          <div class="mb-3"><label class="text-sm text-gray-600">研修/訓練の別</label>
+            <select id="kk-tr-type" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm">
+              <option value="training">研修</option>
+              <option value="drill">訓練（シミュレーション）</option></select></div>
+          <div class="mb-3"><label class="text-sm text-gray-600">実施日</label>
+            <input type="date" id="kk-tr-date" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+          <div class="mb-3"><label class="text-sm text-gray-600">参加人数</label>
+            <input type="number" id="kk-tr-count" min="0" value="0" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+          <div class="mb-5"><label class="text-sm text-gray-600">内容</label>
+            <textarea id="kk-tr-content" rows="3" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm resize-none"></textarea></div>
+          <div class="flex gap-3">
+            <button onclick="saveKkTraining()" class="flex-1 bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-500 transition">保存</button>
+            <button onclick="document.getElementById('kk-training-modal').classList.add('hidden')" class="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg hover:bg-gray-200 transition">キャンセル</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="page-kasan" class="page p-6 hidden">
+      <div id="kk-kasan-reduction-alert" class="mb-4"></div>
+      <div class="bg-white rounded-xl shadow p-5">
+        <h3 class="font-bold text-gray-900 mb-1">加算・届出管理</h3>
+        <p class="text-sm text-gray-500 mb-4">算定している加算の届出状況を管理します。クリックして状況を更新できます。</p>
+        <div id="kk-kasan-list" class="text-sm text-gray-500">読み込み中...</div>
+      </div>
+      <!-- 加算 Modal -->
+      <div id="kk-kasan-modal" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center">
+        <div class="bg-white rounded-2xl p-6 w-96 max-w-full mx-4 shadow-2xl">
+          <h3 id="kk-kasan-modal-name" class="font-bold text-gray-900 text-lg mb-4">加算設定</h3>
+          <input type="hidden" id="kk-kasan-modal-val">
+          <div class="grid grid-cols-2 gap-3 mb-3">
+            <div><label class="text-sm text-gray-600">届出状況</label>
+              <select id="kk-kasan-notified" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm">
+                <option value="0">未届出</option><option value="1">届出済み</option></select></div>
+            <div><label class="text-sm text-gray-600">算定状況</label>
+              <select id="kk-kasan-active" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm">
+                <option value="0">算定していない</option><option value="1">算定中</option></select></div>
+          </div>
+          <div class="mb-3"><label class="text-sm text-gray-600">届出日</label>
+            <input type="date" id="kk-kasan-date" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+          <div class="mb-5"><label class="text-sm text-gray-600">算定要件メモ</label>
+            <textarea id="kk-kasan-reqnotes" rows="4" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm resize-none" placeholder="算定要件の確認状況、必要な書類・研修記録など"></textarea></div>
+          <div class="flex gap-3">
+            <button onclick="saveKkKasan()" class="flex-1 bg-purple-700 text-white py-2 rounded-lg font-medium hover:bg-purple-600 transition">保存</button>
+            <button onclick="document.getElementById('kk-kasan-modal').classList.add('hidden')" class="flex-1 bg-gray-100 text-gray-600 py-2 rounded-lg hover:bg-gray-200 transition">キャンセル</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div id="page-settings" class="page p-6 hidden">
       <h2 class="text-2xl font-bold text-gray-800 mb-4">設定</h2>
       <div id="settings-info" class="bg-white rounded-xl shadow p-6">
@@ -474,6 +642,8 @@ function showApp() {
 }
 
 function showPage(page) {
+  if (page === 'bcp') loadKkBcpPage();
+  if (page === 'kasan') loadKkKasanPage();
   document.querySelectorAll(".page").forEach(p => p.classList.add("hidden"));
   document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("bg-purple-700"));
   const el = document.getElementById("page-"+page);
@@ -534,6 +704,227 @@ async function markRead(id){await api("/api/handovers/"+id+"/read","PATCH");load
 async function loadSettings(){const d=await api("/api/me").catch(e=>null);const el=document.getElementById("settings-info");if(!el)return;if(!d){el.innerHTML="<p>読込失敗</p>";return;}el.innerHTML="<dl class=space-y-3><dt class=font-medium text-gray-700>事業所名</dt><dd>"+d.office_name+"</dd><dt class=font-medium text-gray-700>ユーザーID</dt><dd>"+d.username+"</dd><dt class=font-medium text-gray-700>メール</dt><dd>"+d.email+"</dd><dt class=font-medium text-gray-700>プラン</dt><dd>"+d.plan+"</dd><dt class=font-medium text-gray-700>ステータス</dt><dd>"+d.subscription_status+"</dd><dt class=font-medium text-gray-700>トライアル期限</dt><dd>"+( d.trial_end||"N/A")+"</dd></dl>";}
 
 if(token){showApp();}
+
+// ===== Keikaku BCP・虐待防止・加算管理 =====
+const KEIKAKU_KASAN_LIST = [
+  {name:'主任相談支援専門員配置加算(Ⅰ)', units:'300単位', freq:'月', note:'令和6年新設。主任相談支援専門員1名以上配置＋特定要件'},
+  {name:'主任相談支援専門員配置加算(Ⅱ)', units:'100単位', freq:'月', note:'主任相談支援専門員の配置'},
+  {name:'入院時情報連携加算(Ⅰ)', units:'200単位', freq:'月', note:'入院後7日以内に医療機関を訪問し情報提供'},
+  {name:'入院時情報連携加算(Ⅱ)', units:'100単位', freq:'月', note:'訪問以外の方法（電話・FAX等）で情報提供'},
+  {name:'退院・退所加算', units:'200単位', freq:'回', note:'入院中3回まで。多職種情報収集またはカンファレンス参加後に計画作成'},
+  {name:'集中支援加算(Ⅰ)', units:'300単位', freq:'月', note:'月2回以上訪問面接＋担当者会議実施または関係機関会議参加'},
+  {name:'集中支援加算(Ⅱ)', units:'150単位', freq:'月', note:'月2回以上訪問面接のみ（会議なし）'},
+  {name:'サービス担当者会議実施加算', units:'100単位', freq:'月', note:'居宅訪問・面接し、関係者を招集して担当者会議実施'},
+  {name:'サービス提供時モニタリング加算', units:'100単位', freq:'月', note:'サービス提供現場への訪問確認'},
+  {name:'行動障害支援体制加算(Ⅰ)', units:'60単位', freq:'月', note:'実践研修修了者配置＋区分3以上・行動関連10点以上利用者の実績'},
+  {name:'行動障害支援体制加算(Ⅱ)', units:'30単位', freq:'月', note:'実践研修修了者配置・公表のみ'},
+  {name:'要医療児者支援体制加算(Ⅰ)', units:'60単位', freq:'月', note:'令和6年新設。医療的ケア児者への高度支援体制'},
+  {name:'要医療児者支援体制加算(Ⅱ)', units:'30単位', freq:'月', note:'医療的ケア児者対応研修修了者配置'},
+  {name:'精神障害者支援体制加算(Ⅰ)', units:'60単位', freq:'月', note:'精神障害者支援の対応研修修了者（特定）配置'},
+  {name:'精神障害者支援体制加算(Ⅱ)', units:'30単位', freq:'月', note:'精神障害者支援の対応研修修了者配置'},
+  {name:'医療・保育・教育機関等連携加算(面談)', units:'200単位', freq:'月', note:'医療機関・学校等担当者との面談（月1回）'},
+  {name:'医療・保育・教育機関等連携加算(通院同行)', units:'300単位', freq:'回', note:'令和6年新設。通院同行・診察同席'},
+  {name:'ピアサポート体制加算', units:'100単位', freq:'月', note:'当事者経験者の支援参画体制の整備'},
+  {name:'【減算】BCP未策定減算', units:'-1%', freq:'月', note:'業務継続計画（感染症・自然災害）を未策定の場合'},
+  {name:'【減算】虐待防止措置未実施減算', units:'-1%', freq:'月', note:'委員会未開催・研修未実施・指針未整備の場合'},
+  {name:'【減算】情報公表未対応減算', units:'-1%', freq:'月', note:'WAMNETへの情報公表未報告の場合'},
+];
+
+const KK_ABUSE_LABELS = {committee:'虐待防止委員会', training:'虐待防止研修', policy:'指針の整備・確認', manager:'担当者の選定'};
+const KK_TR_CAT_LABELS = {infection:'感染症BCP', disaster:'自然災害BCP', abuse:'虐待防止'};
+const KK_TR_TYPE_LABELS = {training:'研修', drill:'訓練'};
+
+async function loadKkBcpPage() {
+  const [status, trainings, abuse, bcpData] = await Promise.all([
+    api('/api/compliance-status').catch(()=>null),
+    api('/api/bcp-trainings').catch(()=>[]),
+    api('/api/abuse-prevention').catch(()=>[]),
+    api('/api/bcp').catch(()=>[]),
+  ]);
+  if (status) {
+    const alertEl = document.getElementById('kk-compliance-alerts');
+    if (status.alerts && status.alerts.length > 0) {
+      alertEl.innerHTML = '<div class="bg-red-50 border border-red-200 rounded-xl p-4">'
+        + '<div class="text-red-700 font-bold mb-2">⚠️ コンプライアンスアラート（' + status.reduction_risk + '件の減算リスク）</div>'
+        + status.alerts.map(a=>'<div class="text-red-600 text-sm mb-1">• ' + a + '</div>').join('')
+        + '</div>';
+    } else {
+      alertEl.innerHTML = '<div class="bg-green-50 border border-green-200 rounded-xl p-4"><div class="text-green-700 font-bold">✅ コンプライアンス問題なし</div></div>';
+    }
+    ['infection','disaster'].forEach(type => {
+      const created = type === 'infection' ? status.bcp_infection : status.bcp_disaster;
+      const badge = document.getElementById('kk-bcp-badge-' + type);
+      const card = document.getElementById('kk-bcp-card-' + type);
+      if (created) {
+        badge.textContent = '策定済み'; badge.className = 'text-xs px-3 py-1 rounded-full bg-green-100 text-green-700 font-medium';
+        card.style.borderLeftColor = '#16a34a';
+      }
+    });
+    const abMap = {committee:'kk-abuse-committee-badge', training:'kk-abuse-training-badge', policy:'kk-abuse-policy-badge'};
+    const abStatus = {committee:status.abuse_committee, training:status.abuse_training, policy:status.abuse_policy};
+    for (const [k, eid] of Object.entries(abMap)) {
+      const el = document.getElementById(eid); if (!el) continue;
+      if (abStatus[k]) { el.textContent = '実施済み'; el.className = 'text-xs mt-1 text-green-600 font-medium'; }
+    }
+  }
+  ['infection','disaster'].forEach(type => {
+    const record = bcpData.find(r => r.bcp_type === type) || {};
+    const infoEl = document.getElementById('kk-bcp-info-' + type); if (!infoEl) return;
+    if (record && record.is_created) {
+      infoEl.innerHTML = '<div class="text-xs text-gray-500"><div>策定日: ' + (record.created_date||'-') + '</div><div>最終見直し: ' + (record.last_review_date||'-') + '</div><div>次回見直し予定: ' + (record.next_review_date||'-') + '</div></div>';
+      infoEl.className = 'text-sm text-gray-600 mb-3';
+    }
+  });
+  const abuseEl = document.getElementById('kk-abuse-list');
+  if (abuse.length === 0) { abuseEl.innerHTML = '<p class="text-gray-400">記録はありません</p>'; }
+  else {
+    abuseEl.innerHTML = abuse.slice(0,10).map(a =>
+      '<div class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">'
+      + '<div><span class="bg-purple-100 text-purple-700 text-xs px-2 py-0.5 rounded-full mr-2">' + (KK_ABUSE_LABELS[a.record_type]||a.record_type) + '</span>'
+      + '<span class="text-gray-700 text-sm">' + a.record_date + '</span>'
+      + (a.attendees ? '<span class="text-gray-400 text-xs ml-2">/ ' + a.attendees + '</span>' : '')
+      + '</div><button onclick="deleteKkAbuse(' + a.id + ')" class="text-xs text-gray-400 hover:text-red-500">削除</button></div>'
+    ).join('');
+  }
+  const trEl = document.getElementById('kk-training-list');
+  if (trainings.length === 0) { trEl.innerHTML = '<p class="text-gray-400">記録はありません</p>'; }
+  else {
+    trEl.innerHTML = trainings.slice(0,10).map(t =>
+      '<div class="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">'
+      + '<div><span class="bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full mr-1">' + (KK_TR_CAT_LABELS[t.training_category]||t.training_category) + '</span>'
+      + '<span class="bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full mr-2">' + (KK_TR_TYPE_LABELS[t.training_type]||t.training_type) + '</span>'
+      + '<span class="text-gray-700 text-sm">' + t.training_date + '</span>'
+      + (t.participants_count ? '<span class="text-gray-400 text-xs ml-2">' + t.participants_count + '名</span>' : '')
+      + '</div><button onclick="deleteKkTraining(' + t.id + ')" class="text-xs text-gray-400 hover:text-red-500">削除</button></div>'
+    ).join('');
+  }
+}
+
+async function loadKkKasanPage() {
+  const kasanData = await api('/api/kasan').catch(()=>[]);
+  const kasanMap = {};
+  kasanData.forEach(k => { kasanMap[k.kasan_name] = k; });
+  const alertEl = document.getElementById('kk-kasan-reduction-alert');
+  const reductions = KEIKAKU_KASAN_LIST.filter(k => k.name.startsWith('【減算】') && kasanMap[k.name]?.is_active);
+  if (reductions.length > 0) {
+    alertEl.innerHTML = '<div class="bg-red-50 border border-red-200 rounded-xl p-4"><div class="text-red-700 font-bold">⚠️ 算定中の減算: ' + reductions.map(r=>r.name.replace('【減算】','')).join('、') + '</div></div>';
+  }
+  const listEl = document.getElementById('kk-kasan-list');
+  listEl.innerHTML = KEIKAKU_KASAN_LIST.map(k => {
+    const rec = kasanMap[k.name] || {};
+    const isRed = k.name.startsWith('【減算】');
+    const isActive = rec.is_active ? true : false;
+    const isNotified = rec.is_notified ? true : false;
+    const borderColor = isActive ? (isRed ? 'border-l-red-400' : 'border-l-green-400') : 'border-l-gray-200';
+    const bgColor = isActive ? (isRed ? 'bg-red-50' : 'bg-green-50') : 'bg-gray-50';
+    const activeBadge = isActive
+      ? (isRed ? '<span class="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700">算定中（減算）</span>' : '<span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700">算定中</span>')
+      : '<span class="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-500">未算定</span>';
+    const notifyBadge = isNotified ? '<span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 ml-1">届出済み</span>' : '';
+    return '<div class="' + bgColor + ' border border-gray-200 border-l-4 ' + borderColor + ' rounded-lg p-4 mb-2 cursor-pointer hover:shadow-sm transition" onclick="openKkKasanModal('' + k.name.replace(/'/g,"\'") + '')">'
+      + '<div class="flex justify-between items-start">'
+      + '<div class="flex-1"><span class="font-medium text-gray-900 text-sm">' + k.name + '</span>' + notifyBadge + '</div>'
+      + '<div class="flex items-center gap-2 ml-2"><span class="text-gray-400 text-xs">' + k.units + '/' + k.freq + '</span>' + activeBadge + '</div></div>'
+      + '<div class="text-xs text-gray-500 mt-1">' + k.note + '</div>'
+      + (rec.requirement_notes ? '<div class="text-xs text-purple-600 mt-1 pt-1 border-t border-gray-200">📝 ' + rec.requirement_notes + '</div>' : '')
+      + '</div>';
+  }).join('');
+}
+
+function openKkBcpModal(type) {
+  document.getElementById('kk-bcp-type-val').value = type;
+  document.getElementById('kk-bcp-modal-title').textContent = (type==='infection' ? '感染症' : '自然災害') + 'BCP記録';
+  api('/api/bcp').then(data => {
+    const rec = data.find(r=>r.bcp_type===type) || {};
+    document.getElementById('kk-bcp-is-created').value = rec.is_created||0;
+    document.getElementById('kk-bcp-created-date').value = rec.created_date||'';
+    document.getElementById('kk-bcp-review-date').value = rec.last_review_date||'';
+    document.getElementById('kk-bcp-next-date').value = rec.next_review_date||'';
+    document.getElementById('kk-bcp-staff').value = rec.staff_name||'';
+    document.getElementById('kk-bcp-notes').value = rec.notes||'';
+  });
+  document.getElementById('kk-bcp-modal').classList.remove('hidden');
+}
+async function saveKkBcp() {
+  await api('/api/bcp', 'POST', {
+    bcp_type: document.getElementById('kk-bcp-type-val').value,
+    is_created: parseInt(document.getElementById('kk-bcp-is-created').value),
+    created_date: document.getElementById('kk-bcp-created-date').value,
+    last_review_date: document.getElementById('kk-bcp-review-date').value,
+    next_review_date: document.getElementById('kk-bcp-next-date').value,
+    staff_name: document.getElementById('kk-bcp-staff').value,
+    notes: document.getElementById('kk-bcp-notes').value
+  });
+  document.getElementById('kk-bcp-modal').classList.add('hidden');
+  loadKkBcpPage();
+}
+function openKkAbuseModal() {
+  document.getElementById('kk-abuse-date').value = new Date().toISOString().slice(0,10);
+  ['kk-abuse-attendees','kk-abuse-content','kk-abuse-next'].forEach(id=>{document.getElementById(id).value='';});
+  document.getElementById('kk-abuse-modal').classList.remove('hidden');
+}
+async function saveKkAbuse() {
+  await api('/api/abuse-prevention', 'POST', {
+    record_type: document.getElementById('kk-abuse-type').value,
+    record_date: document.getElementById('kk-abuse-date').value,
+    attendees: document.getElementById('kk-abuse-attendees').value,
+    content: document.getElementById('kk-abuse-content').value,
+    next_date: document.getElementById('kk-abuse-next').value
+  });
+  document.getElementById('kk-abuse-modal').classList.add('hidden');
+  loadKkBcpPage();
+}
+async function deleteKkAbuse(id) {
+  if (!confirm('削除しますか？')) return;
+  await api('/api/abuse-prevention/' + id, 'DELETE');
+  loadKkBcpPage();
+}
+function openKkTrainingModal() {
+  document.getElementById('kk-tr-date').value = new Date().toISOString().slice(0,10);
+  document.getElementById('kk-tr-count').value = '0';
+  document.getElementById('kk-tr-content').value = '';
+  document.getElementById('kk-training-modal').classList.remove('hidden');
+}
+async function saveKkTraining() {
+  await api('/api/bcp-trainings', 'POST', {
+    training_category: document.getElementById('kk-tr-category').value,
+    training_type: document.getElementById('kk-tr-type').value,
+    training_date: document.getElementById('kk-tr-date').value,
+    participants_count: parseInt(document.getElementById('kk-tr-count').value)||0,
+    content: document.getElementById('kk-tr-content').value
+  });
+  document.getElementById('kk-training-modal').classList.add('hidden');
+  loadKkBcpPage();
+}
+async function deleteKkTraining(id) {
+  if (!confirm('削除しますか？')) return;
+  await api('/api/bcp-trainings/' + id, 'DELETE');
+  loadKkBcpPage();
+}
+function openKkKasanModal(name) {
+  document.getElementById('kk-kasan-modal-name').textContent = name;
+  document.getElementById('kk-kasan-modal-val').value = name;
+  api('/api/kasan').then(data => {
+    const rec = data.find(r=>r.kasan_name===name)||{};
+    document.getElementById('kk-kasan-notified').value = rec.is_notified||0;
+    document.getElementById('kk-kasan-active').value = rec.is_active||0;
+    document.getElementById('kk-kasan-date').value = rec.notify_date||'';
+    document.getElementById('kk-kasan-reqnotes').value = rec.requirement_notes||'';
+  });
+  document.getElementById('kk-kasan-modal').classList.remove('hidden');
+}
+async function saveKkKasan() {
+  await api('/api/kasan', 'POST', {
+    kasan_name: document.getElementById('kk-kasan-modal-val').value,
+    is_notified: parseInt(document.getElementById('kk-kasan-notified').value),
+    is_active: parseInt(document.getElementById('kk-kasan-active').value),
+    notify_date: document.getElementById('kk-kasan-date').value,
+    requirement_notes: document.getElementById('kk-kasan-reqnotes').value
+  });
+  document.getElementById('kk-kasan-modal').classList.add('hidden');
+  loadKkKasanPage();
+}
+
 </script>
 </body>
 </html>

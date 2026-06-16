@@ -784,6 +784,183 @@ def _seed_keikaku_demo(db, oid):
     db.execute("INSERT INTO handovers (office_id,staff_name,content,priority) VALUES (?,?,?,?)",
         (oid, "中村 相談子", "高橋さんの次回モニタリングが今月中旬に予定されています。事前に利用事業所へ連絡を入れること。", "normal"))
 
+
+
+# ===== BCP管理・虐待防止・加算管理 =====
+class BcpRecordReq(BaseModel):
+    bcp_type: str
+    is_created: Optional[int] = 0
+    created_date: Optional[str] = ""
+    last_review_date: Optional[str] = ""
+    next_review_date: Optional[str] = ""
+    staff_name: Optional[str] = ""
+    notes: Optional[str] = ""
+
+class BcpTrainingReq(BaseModel):
+    training_category: str
+    training_type: Optional[str] = "training"
+    training_date: str
+    participants_count: Optional[int] = 0
+    content: Optional[str] = ""
+    notes: Optional[str] = ""
+
+class AbusePrevReq(BaseModel):
+    record_type: str
+    record_date: str
+    attendees: Optional[str] = ""
+    content: Optional[str] = ""
+    next_date: Optional[str] = ""
+    notes: Optional[str] = ""
+
+class KasanReq(BaseModel):
+    kasan_name: str
+    units: Optional[str] = ""
+    freq: Optional[str] = ""
+    is_notified: Optional[int] = 0
+    notify_date: Optional[str] = ""
+    is_active: Optional[int] = 0
+    requirement_notes: Optional[str] = ""
+    notes: Optional[str] = ""
+
+@app.get("/api/bcp")
+def get_bcp(request: Request):
+    oid = current_office(request)
+    db = get_db()
+    try:
+        rows = db.execute("SELECT * FROM bcp_records WHERE office_id=? ORDER BY bcp_type", (oid,)).fetchall()
+        return [dict(r) for r in rows]
+    finally: db.close()
+
+@app.post("/api/bcp")
+def upsert_bcp(body: BcpRecordReq, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    try:
+        ex = db.execute("SELECT id FROM bcp_records WHERE office_id=? AND bcp_type=?", (oid, body.bcp_type)).fetchone()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if ex:
+            db.execute("UPDATE bcp_records SET is_created=?,created_date=?,last_review_date=?,next_review_date=?,staff_name=?,notes=?,updated_at=? WHERE id=?",
+                (body.is_created,body.created_date,body.last_review_date,body.next_review_date,body.staff_name,body.notes,now,ex["id"]))
+        else:
+            db.execute("INSERT INTO bcp_records (office_id,bcp_type,is_created,created_date,last_review_date,next_review_date,staff_name,notes) VALUES (?,?,?,?,?,?,?,?)",
+                (oid,body.bcp_type,body.is_created,body.created_date,body.last_review_date,body.next_review_date,body.staff_name,body.notes))
+        db.commit()
+        return {"ok": True}
+    finally: db.close()
+
+@app.get("/api/bcp-trainings")
+def get_bcp_trainings(request: Request):
+    oid = current_office(request)
+    db = get_db()
+    try:
+        rows = db.execute("SELECT * FROM bcp_trainings WHERE office_id=? ORDER BY training_date DESC", (oid,)).fetchall()
+        return [dict(r) for r in rows]
+    finally: db.close()
+
+@app.post("/api/bcp-trainings")
+def create_bcp_training(body: BcpTrainingReq, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    try:
+        db.execute("INSERT INTO bcp_trainings (office_id,training_category,training_type,training_date,participants_count,content) VALUES (?,?,?,?,?,?)",
+            (oid,body.training_category,body.training_type,body.training_date,body.participants_count,body.content))
+        db.commit()
+        return {"ok": True}
+    finally: db.close()
+
+@app.delete("/api/bcp-trainings/{tid}")
+def delete_bcp_training(tid: int, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    try:
+        db.execute("DELETE FROM bcp_trainings WHERE id=? AND office_id=?", (tid, oid))
+        db.commit()
+        return {"ok": True}
+    finally: db.close()
+
+@app.get("/api/abuse-prevention")
+def get_abuse_prev(request: Request):
+    oid = current_office(request)
+    db = get_db()
+    try:
+        rows = db.execute("SELECT * FROM abuse_prevention WHERE office_id=? ORDER BY record_date DESC", (oid,)).fetchall()
+        return [dict(r) for r in rows]
+    finally: db.close()
+
+@app.post("/api/abuse-prevention")
+def create_abuse_prev(body: AbusePrevReq, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    try:
+        db.execute("INSERT INTO abuse_prevention (office_id,record_type,record_date,attendees,content,next_date) VALUES (?,?,?,?,?,?)",
+            (oid,body.record_type,body.record_date,body.attendees,body.content,body.next_date))
+        db.commit()
+        return {"ok": True}
+    finally: db.close()
+
+@app.delete("/api/abuse-prevention/{aid}")
+def delete_abuse_prev(aid: int, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    try:
+        db.execute("DELETE FROM abuse_prevention WHERE id=? AND office_id=?", (aid, oid))
+        db.commit()
+        return {"ok": True}
+    finally: db.close()
+
+@app.get("/api/kasan")
+def get_kasan(request: Request):
+    oid = current_office(request)
+    db = get_db()
+    try:
+        rows = db.execute("SELECT * FROM kasan_records WHERE office_id=? ORDER BY kasan_name", (oid,)).fetchall()
+        return [dict(r) for r in rows]
+    finally: db.close()
+
+@app.post("/api/kasan")
+def upsert_kasan(body: KasanReq, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    try:
+        ex = db.execute("SELECT id FROM kasan_records WHERE office_id=? AND kasan_name=?", (oid, body.kasan_name)).fetchone()
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if ex:
+            db.execute("UPDATE kasan_records SET units=?,freq=?,is_notified=?,notify_date=?,is_active=?,requirement_notes=?,notes=?,updated_at=? WHERE id=?",
+                (body.units,body.freq,body.is_notified,body.notify_date,body.is_active,body.requirement_notes,body.notes,now,ex["id"]))
+        else:
+            db.execute("INSERT INTO kasan_records (office_id,kasan_name,units,freq,is_notified,notify_date,is_active,requirement_notes) VALUES (?,?,?,?,?,?,?,?)",
+                (oid,body.kasan_name,body.units,body.freq,body.is_notified,body.notify_date,body.is_active,body.requirement_notes))
+        db.commit()
+        return {"ok": True}
+    finally: db.close()
+
+@app.get("/api/compliance-status")
+def compliance_status(request: Request):
+    oid = current_office(request)
+    db = get_db()
+    try:
+        bcp_inf = db.execute("SELECT is_created FROM bcp_records WHERE office_id=? AND bcp_type='infection'", (oid,)).fetchone()
+        bcp_dis = db.execute("SELECT is_created FROM bcp_records WHERE office_id=? AND bcp_type='disaster'", (oid,)).fetchone()
+        abuse_committee = db.execute("SELECT id FROM abuse_prevention WHERE office_id=? AND record_type='committee' ORDER BY record_date DESC LIMIT 1", (oid,)).fetchone()
+        abuse_training = db.execute("SELECT id FROM abuse_prevention WHERE office_id=? AND record_type='training' ORDER BY record_date DESC LIMIT 1", (oid,)).fetchone()
+        abuse_policy = db.execute("SELECT id FROM abuse_prevention WHERE office_id=? AND record_type='policy' ORDER BY record_date DESC LIMIT 1", (oid,)).fetchone()
+        alerts = []
+        if not bcp_inf or not bcp_inf["is_created"]: alerts.append("感染症BCPが未策定です（基本報酬-1%減算）")
+        if not bcp_dis or not bcp_dis["is_created"]: alerts.append("自然災害BCPが未策定です（基本報酬-1%減算）")
+        if not abuse_committee: alerts.append("虐待防止委員会の開催記録がありません（-1%減算）")
+        if not abuse_training: alerts.append("虐待防止研修の記録がありません")
+        if not abuse_policy: alerts.append("虐待防止指針の整備記録がありません")
+        return {
+            "bcp_infection": bool(bcp_inf and bcp_inf["is_created"]),
+            "bcp_disaster": bool(bcp_dis and bcp_dis["is_created"]),
+            "abuse_committee": bool(abuse_committee),
+            "abuse_training": bool(abuse_training),
+            "abuse_policy": bool(abuse_policy),
+            "alerts": alerts,
+            "reduction_risk": len([a for a in alerts if "減算" in a])
+        }
+    finally: db.close()
+
 @app.get("/{path:path}")
 def catch_all(path: str):
     with open("static/index.html", encoding="utf-8") as f:

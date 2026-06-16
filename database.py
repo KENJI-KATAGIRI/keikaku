@@ -166,6 +166,61 @@ def init_db():
         created_at TEXT DEFAULT (datetime('now','localtime')),
         FOREIGN KEY (office_id) REFERENCES offices(id)
     );
+    CREATE TABLE IF NOT EXISTS bcp_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        office_id INTEGER NOT NULL,
+        bcp_type TEXT NOT NULL,
+        is_created INTEGER DEFAULT 0,
+        created_date TEXT DEFAULT '',
+        last_review_date TEXT DEFAULT '',
+        next_review_date TEXT DEFAULT '',
+        staff_name TEXT DEFAULT '',
+        notes TEXT DEFAULT '',
+        updated_at TEXT DEFAULT (datetime('now','localtime')),
+        FOREIGN KEY (office_id) REFERENCES offices(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS bcp_trainings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        office_id INTEGER NOT NULL,
+        training_category TEXT NOT NULL,
+        training_type TEXT DEFAULT 'training',
+        training_date TEXT NOT NULL,
+        participants_count INTEGER DEFAULT 0,
+        content TEXT DEFAULT '',
+        notes TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now','localtime')),
+        FOREIGN KEY (office_id) REFERENCES offices(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS abuse_prevention (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        office_id INTEGER NOT NULL,
+        record_type TEXT NOT NULL,
+        record_date TEXT NOT NULL,
+        attendees TEXT DEFAULT '',
+        content TEXT DEFAULT '',
+        next_date TEXT DEFAULT '',
+        notes TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now','localtime')),
+        FOREIGN KEY (office_id) REFERENCES offices(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS kasan_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        office_id INTEGER NOT NULL,
+        kasan_name TEXT NOT NULL,
+        units TEXT DEFAULT '',
+        freq TEXT DEFAULT '',
+        is_notified INTEGER DEFAULT 0,
+        notify_date TEXT DEFAULT '',
+        is_active INTEGER DEFAULT 0,
+        requirement_notes TEXT DEFAULT '',
+        notes TEXT DEFAULT '',
+        updated_at TEXT DEFAULT (datetime('now','localtime')),
+        FOREIGN KEY (office_id) REFERENCES offices(id)
+    );
+
     """)
     conn.commit()
     conn.close()
