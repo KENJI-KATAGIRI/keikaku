@@ -35,6 +35,21 @@ def current_office(request: Request):
     try: return int(jwt.decode(auth[7:], SECRET_KEY, algorithms=[ALGORITHM])["sub"])
     except: raise HTTPException(401)
 
+def current_office_query(request: Request, token: Optional[str] = None):
+    """Auth that accepts token as query param (for window.open/href downloads)"""
+    tok = token
+    if not tok:
+        auth = request.headers.get("authorization", "")
+        tok = auth.replace("Bearer ", "") if auth else None
+    if not tok:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+    try:
+        payload = jwt.decode(tok, SECRET_KEY, algorithms=["HS256"])
+        return int(payload.get("sub"))
+    except Exception:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
+
 def check_active(oid, db):
     row = db.execute("SELECT subscription_status,trial_end FROM offices WHERE id=?", (oid,)).fetchone()
     if not row: raise HTTPException(403)
@@ -1254,10 +1269,10 @@ def billing_detail_kk(request: Request, year: int, month: int):
     db.close(); return [dict(r) for r in rows]
 
 @app.get("/api/billing/csv")
-def billing_csv_kk(request: Request, year: int, month: int):
+def billing_csv_kk(request: Request, year: int, month: int, token: Optional[str]=None):
     from fastapi.responses import StreamingResponse
     import io, csv as csvlib
-    oid = current_office(request)
+    oid = current_office_query(request, token)
     db = get_db()
     office = db.execute("SELECT * FROM offices WHERE id=?", (oid,)).fetchone()
     rows = db.execute("""SELECT br.*, c.name as client_name, c.jukyusha_no, c.disability_type
@@ -1297,9 +1312,9 @@ def billing_csv_kk(request: Request, year: int, month: int):
 from fastapi.responses import HTMLResponse
 
 @app.get("/api/forms/service-plan/{plan_id}", response_class=HTMLResponse)
-def form_service_plan(plan_id: int, request: Request):
+def form_service_plan(plan_id: int, request: Request, token: Optional[str]=None):
     """サービス等利用計画書"""
-    oid = current_office(request)
+    oid = current_office_query(request, token)
     db = get_db()
     office = db.execute("SELECT * FROM offices WHERE id=?", (oid,)).fetchone()
     if office: office = dict(office)
@@ -1360,9 +1375,9 @@ def form_service_plan(plan_id: int, request: Request):
     return html
 
 @app.get("/api/forms/monitoring/{report_id}", response_class=HTMLResponse)
-def form_monitoring(report_id: int, request: Request):
+def form_monitoring(report_id: int, request: Request, token: Optional[str]=None):
     """モニタリング報告書"""
-    oid = current_office(request)
+    oid = current_office_query(request, token)
     db = get_db()
     office = db.execute("SELECT * FROM offices WHERE id=?", (oid,)).fetchone()
     if office: office = dict(office)

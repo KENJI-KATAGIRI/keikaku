@@ -1377,7 +1377,7 @@ async function loadKkBillingHistory() {
       <td class="px-3 py-2 text-gray-400 text-xs">${r.created_at||''}</td>
       <td class="px-3 py-2 flex gap-2">
         <button onclick="showKkBillingDetail(${r.billing_year},${r.billing_month})" class="text-blue-500 hover:text-blue-700 text-xs">明細</button>
-        <a href="/keikaku/api/billing/csv?year=${r.billing_year}&month=${r.billing_month}" class="text-green-500 hover:text-green-700 text-xs">CSV</a>
+        <button onclick="kkDownloadBillingCsv(${r.billing_year},${r.billing_month})" class="text-green-500 hover:text-green-700 text-xs">CSV↓</button>
       </td>
     </tr>`).join('')}</tbody>
   </table>`;
@@ -1808,13 +1808,20 @@ async function loadMonitoringList() {
 function openServicePlanForm() {
   const planId = document.getElementById('form-plan-sel').value;
   if(!planId) { alert('計画書を選択してください'); return; }
-  window.open('/keikaku/api/forms/service-plan/'+planId, '_blank');
+  window.open('/keikaku/api/forms/service-plan/'+planId+'?token='+token, '_blank');
 }
 
 function openMonitoringForm() {
   const reportId = document.getElementById('form-mon-sel').value;
   if(!reportId) { alert('報告書を選択してください'); return; }
-  window.open('/keikaku/api/forms/monitoring/'+reportId, '_blank');
+  window.open('/keikaku/api/forms/monitoring/'+reportId+'?token='+token, '_blank');
+}
+
+function kkDownloadBillingCsv(year, month) {
+  const a = document.createElement('a');
+  a.href = `/keikaku/api/billing/csv?year=${year}&month=${month}&token=${token}`;
+  a.download = `keikaku_billing_${year}${String(month).padStart(2,'0')}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
 }
 
 </script>
