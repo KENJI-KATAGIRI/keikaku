@@ -279,6 +279,42 @@ def init_db():
         created_at TEXT DEFAULT (datetime('now','localtime')),
         UNIQUE(office_id, billing_year, billing_month, client_id)
     );
+    CREATE TABLE IF NOT EXISTS genogram_members (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        office_id INTEGER NOT NULL,
+        client_id INTEGER NOT NULL,
+        member_type TEXT NOT NULL,
+        name TEXT DEFAULT '',
+        gender TEXT DEFAULT 'unknown',
+        age INTEGER,
+        is_deceased INTEGER DEFAULT 0,
+        is_cohabiting INTEGER DEFAULT 0,
+        relationship_to_client TEXT DEFAULT '',
+        x_pos INTEGER DEFAULT 0,
+        y_pos INTEGER DEFAULT 0,
+        notes TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now','localtime'))
+    );
+    CREATE TABLE IF NOT EXISTS genogram_relations (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        office_id INTEGER NOT NULL,
+        client_id INTEGER NOT NULL,
+        member1_id INTEGER NOT NULL,
+        member2_id INTEGER NOT NULL,
+        rel_type TEXT NOT NULL,
+        created_at TEXT DEFAULT (datetime('now','localtime'))
+    );
+    CREATE TABLE IF NOT EXISTS ecomap_items (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        office_id INTEGER NOT NULL,
+        client_id INTEGER NOT NULL,
+        item_name TEXT NOT NULL,
+        item_type TEXT DEFAULT 'other',
+        strength TEXT DEFAULT 'moderate',
+        direction TEXT DEFAULT 'both',
+        notes TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now','localtime'))
+    );
     """)
     conn.commit()
     conn.close()

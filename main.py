@@ -1291,6 +1291,277 @@ def billing_csv_kk(request: Request, year: int, month: int):
         headers={"Content-Disposition": f"attachment; filename=keikaku_billing_{year}{month:02d}.csv"}
     )
 
+
+
+# ===== 帳票生成API (keikaku) =====
+from fastapi.responses import HTMLResponse
+
+@app.get("/api/forms/service-plan/{plan_id}", response_class=HTMLResponse)
+def form_service_plan(plan_id: int, request: Request):
+    """サービス等利用計画書"""
+    oid = current_office(request)
+    db = get_db()
+    office = db.execute("SELECT * FROM offices WHERE id=?", (oid,)).fetchone()
+    if office: office = dict(office)
+    plan = db.execute("SELECT sp.*, c.name as client_name, c.kana, c.birthdate, c.gender, c.disability_type, c.disability_level, c.jukyusha_no, c.address, co.name as counselor_name FROM service_plans sp JOIN clients c ON c.id=sp.client_id LEFT JOIN counselors co ON co.id=c.counselor_id WHERE sp.id=? AND sp.office_id=?", (plan_id, oid)).fetchone()
+    if not plan: raise HTTPException(404)
+    plan = dict(plan)
+    from datetime import date
+    today = date.today().strftime("%Y年%m月%d日")
+    disability_map = {"psychiatric":"精神障害","intellectual":"知的障害","physical":"身体障害","developmental":"発達障害","other":"その他"}
+    services_text = plan["services"] or ""
+    html = f"""<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
+<title>サービス等利用計画書 - {plan['client_name']}</title>
+<style>
+  body{{font-family:'游明朝','Hiragino Mincho ProN',serif;padding:15mm;font-size:10pt;color:#000;margin:0}}
+  h1{{text-align:center;font-size:15pt;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:16px}}
+  h2{{font-size:11pt;background:#e8e8e8;padding:3px 8px;border-left:4px solid #555;margin:14px 0 6px}}
+  table{{width:100%;border-collapse:collapse;margin-bottom:10px;font-size:9.5pt}}
+  th,td{{border:1px solid #666;padding:5px 8px;vertical-align:top}}
+  th{{background:#f0f0f0;font-weight:bold;width:22%}}
+  .goal-box{{border:1px solid #666;padding:8px;min-height:45px;margin-bottom:10px}}
+  @media print{{button{{display:none}}}}
+  button{{padding:8px 20px;background:#7c3aed;color:white;border:none;border-radius:4px;cursor:pointer;margin-bottom:12px}}
+</style></head><body>
+<button onclick="window.print()">🖨️ 印刷 / PDF保存</button>
+<h1>サービス等利用計画書</h1>
+<p style="text-align:right;font-size:9pt">作成日：{plan['created_date'] or today}　　版：第{plan['version'] or 1}版</p>
+<table>
+  <tr><th>利用者氏名</th><td><strong>{plan['client_name']}</strong>（{plan.get('kana','')}&nbsp;）</td>
+      <th>生年月日</th><td>{plan.get('birthdate','')}</td></tr>
+  <tr><th>障害種別</th><td>{disability_map.get(plan.get('disability_type',''),'')}</td>
+      <th>障害支援区分</th><td>{plan.get('disability_level','')}</td></tr>
+  <tr><th>受給者番号</th><td>{plan.get('jukyusha_no','')}</td>
+      <th>相談支援専門員</th><td>{plan.get('counselor_name','')}</td></tr>
+  <tr><th>住所</th><td colspan="3">{plan.get('address','')}</td></tr>
+</table>
+<h2>総合的な支援の方針</h2>
+<div class="goal-box">{plan.get('support_policy','') or ''}</div>
+<h2>長期目標</h2>
+<div class="goal-box">{plan.get('long_term_goal','') or ''}</div>
+<h2>短期目標</h2>
+<div class="goal-box">{plan.get('short_term_goal','') or ''}</div>
+<h2>週間計画・利用サービス</h2>
+<div class="goal-box" style="min-height:80px">{plan.get('weekly_schedule','') or ''}</div>
+<h2>利用するサービス一覧</h2>
+<div class="goal-box">{services_text}</div>
+<h2>特記事項</h2>
+<div class="goal-box">{plan.get('notes','') or ''}</div>
+<table style="margin-top:20px">
+  <tr>
+    <td style="border:none;text-align:center">事業所：{office['office_name'] if office else ''}</td>
+    <td style="border:none;text-align:center">作成者署名：<span style="display:inline-block;border-bottom:1px solid #000;min-width:80px">&nbsp;</span></td>
+    <td style="border:none;text-align:center">利用者同意署名：<span style="display:inline-block;border-bottom:1px solid #000;min-width:80px">&nbsp;</span></td>
+    <td style="border:none;text-align:center">承認日：{plan.get('approved_date','')}</td>
+  </tr>
+</table>
+</body></html>"""
+    db.close()
+    return html
+
+@app.get("/api/forms/monitoring/{report_id}", response_class=HTMLResponse)
+def form_monitoring(report_id: int, request: Request):
+    """モニタリング報告書"""
+    oid = current_office(request)
+    db = get_db()
+    office = db.execute("SELECT * FROM offices WHERE id=?", (oid,)).fetchone()
+    if office: office = dict(office)
+    rep = db.execute("""SELECT mr.*, c.name as client_name, c.jukyusha_no, c.disability_type,
+        co.name as counselor_name FROM monitoring_reports mr
+        JOIN clients c ON c.id=mr.client_id
+        LEFT JOIN counselors co ON co.id=mr.counselor_id
+        WHERE mr.id=? AND mr.office_id=?""", (report_id, oid)).fetchone()
+    if not rep: raise HTTPException(404)
+    rep = dict(rep)
+    satisfaction_map = {"very_satisfied":"非常に満足","satisfied":"満足","neutral":"普通","unsatisfied":"不満","very_unsatisfied":"非常に不満"}
+    achievement_map = {"achieved":"達成","mostly":"ほぼ達成","partial":"一部達成","not":"未達成"}
+    html = f"""<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
+<title>モニタリング報告書 - {rep['client_name']}</title>
+<style>
+  body{{font-family:'游明朝','Hiragino Mincho ProN',serif;padding:15mm;font-size:10pt;color:#000;margin:0}}
+  h1{{text-align:center;font-size:15pt;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:16px}}
+  h2{{font-size:11pt;background:#e8e8e8;padding:3px 8px;border-left:4px solid #555;margin:14px 0 6px}}
+  table{{width:100%;border-collapse:collapse;margin-bottom:10px}}
+  th,td{{border:1px solid #666;padding:5px 8px;vertical-align:top}}
+  th{{background:#f0f0f0;font-weight:bold;width:28%}}
+  .content-box{{border:1px solid #666;padding:8px;min-height:40px;margin-bottom:10px}}
+  @media print{{button{{display:none}}}}
+  button{{padding:8px 20px;background:#7c3aed;color:white;border:none;border-radius:4px;cursor:pointer;margin-bottom:12px}}
+</style></head><body>
+<button onclick="window.print()">🖨️ 印刷 / PDF保存</button>
+<h1>継続サービス利用支援（モニタリング）報告書</h1>
+<table>
+  <tr><th>利用者氏名</th><td><strong>{rep['client_name']}</strong></td>
+      <th>受給者番号</th><td>{rep.get('jukyusha_no','')}</td></tr>
+  <tr><th>モニタリング実施日</th><td>{rep.get('monitor_date','')}</td>
+      <th>訪問日</th><td>{rep.get('visit_date','')}</td></tr>
+  <tr><th>相談支援専門員</th><td>{rep.get('counselor_name','')}</td>
+      <th>事業所</th><td>{office['office_name'] if office else ''}</td></tr>
+</table>
+<h2>目標達成度</h2>
+<table>
+  <tr><th>目標達成状況</th><td>{achievement_map.get(rep.get('goal_achievement',''),'')}</td>
+      <th>本人満足度</th><td>{satisfaction_map.get(rep.get('satisfaction',''),'')}</td></tr>
+</table>
+<h2>サービス利用状況</h2>
+<div class="content-box">{rep.get('service_status','') or ''}</div>
+<h2>課題・問題点</h2>
+<div class="content-box">{rep.get('issues','') or ''}</div>
+<h2>計画変更の必要性</h2>
+<div class="content-box">{rep.get('plan_change','') or '変更なし'}</div>
+<h2>特記事項</h2>
+<div class="content-box">{rep.get('notes','') or ''}</div>
+<table style="margin-top:16px">
+  <tr><th>次回モニタリング予定日</th><td>{rep.get('next_monitoring','')}</td>
+      <th>市区町村提出</th><td>{'済' if rep.get('submitted_to_city') else '未'}</td></tr>
+</table>
+<div style="margin-top:24px;text-align:right">
+  作成者署名：<span style="display:inline-block;border-bottom:1px solid #000;min-width:100px">&nbsp;</span>&nbsp;&nbsp;
+  利用者確認署名：<span style="display:inline-block;border-bottom:1px solid #000;min-width:100px">&nbsp;</span>
+</div>
+</body></html>"""
+    db.close()
+    return html
+
+# ===== ジェノグラム・エコマップ =====
+class GenogramMemberReq(BaseModel):
+    client_id: int
+    member_type: str  # 'client','parent','spouse','child','sibling','grandparent','other'
+    name: Optional[str] = ""
+    gender: Optional[str] = "unknown"  # 'male','female','unknown'
+    age: Optional[int] = None
+    is_deceased: Optional[int] = 0
+    is_cohabiting: Optional[int] = 0
+    relationship_to_client: Optional[str] = ""
+    x_pos: Optional[int] = 0
+    y_pos: Optional[int] = 0
+    notes: Optional[str] = ""
+
+class GenogramRelReq(BaseModel):
+    client_id: int
+    member1_id: int
+    member2_id: int
+    rel_type: str  # 'married','divorced','separated','partner','parent_child','sibling','conflict','close','distant'
+
+class EcomapItemReq(BaseModel):
+    client_id: int
+    item_name: str
+    item_type: str  # 'service','medical','family','friend','work','education','other'
+    strength: str  # 'strong','moderate','weak','stressed'
+    direction: str  # 'both','to_client','from_client'
+    notes: Optional[str] = ""
+
+@app.get("/api/genogram/{client_id}")
+def get_genogram(client_id: int, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    members = db.execute("SELECT * FROM genogram_members WHERE office_id=? AND client_id=?", (oid, client_id)).fetchall()
+    rels = db.execute("SELECT * FROM genogram_relations WHERE office_id=? AND client_id=?", (oid, client_id)).fetchall()
+    db.close()
+    return {"members": [dict(m) for m in members], "relations": [dict(r) for r in rels]}
+
+@app.post("/api/genogram/member")
+def save_genogram_member(body: GenogramMemberReq, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    db.execute("""INSERT INTO genogram_members
+        (office_id,client_id,member_type,name,gender,age,is_deceased,is_cohabiting,
+         relationship_to_client,x_pos,y_pos,notes)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (oid,body.client_id,body.member_type,body.name,body.gender,body.age,
+         body.is_deceased,body.is_cohabiting,body.relationship_to_client,
+         body.x_pos,body.y_pos,body.notes))
+    new_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+    db.commit(); db.close()
+    return {"ok": True, "id": new_id}
+
+@app.put("/api/genogram/member/{mid}")
+def update_genogram_member(mid: int, body: GenogramMemberReq, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    db.execute("""UPDATE genogram_members SET
+        name=?,gender=?,age=?,is_deceased=?,is_cohabiting=?,
+        relationship_to_client=?,x_pos=?,y_pos=?,notes=?
+        WHERE id=? AND office_id=?""",
+        (body.name,body.gender,body.age,body.is_deceased,body.is_cohabiting,
+         body.relationship_to_client,body.x_pos,body.y_pos,body.notes,mid,oid))
+    db.commit(); db.close()
+    return {"ok": True}
+
+@app.delete("/api/genogram/member/{mid}")
+def delete_genogram_member(mid: int, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    db.execute("DELETE FROM genogram_members WHERE id=? AND office_id=?", (mid, oid))
+    db.execute("DELETE FROM genogram_relations WHERE (member1_id=? OR member2_id=?) AND office_id=?", (mid, mid, oid))
+    db.commit(); db.close()
+    return {"ok": True}
+
+@app.post("/api/genogram/relation")
+def save_genogram_relation(body: GenogramRelReq, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    db.execute("""INSERT INTO genogram_relations (office_id,client_id,member1_id,member2_id,rel_type)
+        VALUES (?,?,?,?,?)""", (oid,body.client_id,body.member1_id,body.member2_id,body.rel_type))
+    new_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+    db.commit(); db.close()
+    return {"ok": True, "id": new_id}
+
+@app.delete("/api/genogram/relation/{rid}")
+def delete_genogram_relation(rid: int, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    db.execute("DELETE FROM genogram_relations WHERE id=? AND office_id=?", (rid, oid))
+    db.commit(); db.close()
+    return {"ok": True}
+
+@app.get("/api/ecomap/{client_id}")
+def get_ecomap(client_id: int, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    items = db.execute("SELECT * FROM ecomap_items WHERE office_id=? AND client_id=?", (oid, client_id)).fetchall()
+    db.close()
+    return [dict(i) for i in items]
+
+@app.post("/api/ecomap/item")
+def save_ecomap_item(body: EcomapItemReq, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    db.execute("""INSERT INTO ecomap_items (office_id,client_id,item_name,item_type,strength,direction,notes)
+        VALUES (?,?,?,?,?,?,?)""",
+        (oid,body.client_id,body.item_name,body.item_type,body.strength,body.direction,body.notes))
+    new_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+    db.commit(); db.close()
+    return {"ok": True, "id": new_id}
+
+@app.delete("/api/ecomap/item/{iid}")
+def delete_ecomap_item(iid: int, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    db.execute("DELETE FROM ecomap_items WHERE id=? AND office_id=?", (iid, oid))
+    db.commit(); db.close()
+    return {"ok": True}
+
+# ===== 複数事業所ダッシュボード（管理者用） =====
+ADMIN_KEY = os.environ.get("ADMIN_KEY", "keikaku-admin-2025")
+
+@app.get("/api/admin/offices")
+def admin_offices(request: Request, admin_key: str = ""):
+    if admin_key != ADMIN_KEY:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    db = get_db()
+    offices = db.execute("SELECT * FROM offices ORDER BY created_at DESC").fetchall()
+    result = []
+    for o in offices:
+        client_count = db.execute("SELECT COUNT(*) FROM clients WHERE office_id=? AND is_active=1", (o["id"],)).fetchone()[0]
+        plan_count = db.execute("SELECT COUNT(*) FROM service_plans WHERE office_id=?", (o["id"],)).fetchone()[0]
+        last_active = db.execute("SELECT MAX(created_at) FROM monitoring_reports WHERE office_id=?", (o["id"],)).fetchone()[0]
+        total_subsidy = db.execute("SELECT COALESCE(SUM(subsidy_yen),0) FROM billing_records WHERE office_id=?", (o["id"],)).fetchone()[0]
+        result.append({**dict(o), "client_count": client_count, "plan_count": plan_count,
+                       "last_active": last_active, "total_subsidy": total_subsidy})
+    db.close()
+    return result
+
 @app.get("/{path:path}")
 def catch_all(path: str):
     with open("static/index.html", encoding="utf-8") as f:

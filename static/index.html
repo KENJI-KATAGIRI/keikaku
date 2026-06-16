@@ -93,6 +93,8 @@ body { font-family: "Noto Sans JP", sans-serif; }
       <button onclick="showPage('hospitalization')" id="nav-hospitalization" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">🏥 入退院管理</button>
       <button onclick="showPage('signatures')" id="nav-signatures" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">✍️ 電子署名</button>
       <button onclick="showPage('billing')" id="nav-billing" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">🧾 国保連請求</button>
+      <button onclick="showPage('genogram')" id="nav-genogram" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">🫂 ジェノグラム</button>
+      <button onclick="showPage('forms')" id="nav-forms" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">📄 帳票PDF出力</button>
       <button onclick="doLogout()" class="w-full text-left px-3 py-2 rounded-lg mt-4 text-purple-300 hover:text-white hover:bg-purple-800 transition">🚪 ログアウト</button>
     </nav>
   </div>
@@ -650,6 +652,8 @@ function showPage(page) {
   if (page === 'hospitalization') loadKkHospitalizationPage();
   if (page === 'signatures') loadKkSignaturesPage();
   if (page === 'billing') loadKkBillingPage();
+  if (page === 'genogram') loadGenogramPage();
+  if (page === 'forms') loadKkFormsPage();
   document.querySelectorAll(".page").forEach(p => p.classList.add("hidden"));
   document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("bg-purple-700"));
   const el = document.getElementById("page-"+page);
@@ -1189,6 +1193,80 @@ async function kkViewSignature(id) {
       <div id="kk-billing-history-list" class="text-sm text-gray-500">読み込み中...</div>
     </div>
   </div>
+
+  <!-- ジェノグラム・エコマップページ -->
+  <div id="page-genogram" class="page p-6 hidden">
+    <div class="bg-white rounded-xl shadow p-4 mb-4">
+      <div class="flex items-center gap-4 mb-3">
+        <h2 class="text-lg font-bold text-gray-800">🫂 ジェノグラム・エコマップ</h2>
+        <select id="geno-client-sel" onchange="selectGenoClient()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1 max-w-xs">
+          <option value="">クライアントを選択</option>
+        </select>
+      </div>
+      <!-- Tabs -->
+      <div class="flex gap-2 mb-4 border-b border-gray-200">
+        <button id="tab-genogram" onclick="switchGenoTab('genogram')" class="px-4 py-2 text-sm font-medium border-b-2 border-purple-600 text-purple-600">ジェノグラム</button>
+        <button id="tab-ecomap" onclick="switchGenoTab('ecomap')" class="px-4 py-2 text-sm font-medium text-gray-500 hover:text-purple-600">エコマップ</button>
+      </div>
+      <!-- Genogram panel -->
+      <div id="panel-genogram">
+        <div class="flex gap-3 mb-3 flex-wrap">
+          <button onclick="addGenoMember()" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700">＋ 家族メンバー追加</button>
+          <button onclick="addGenoRelation()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">↔ 関係線追加</button>
+          <button onclick="printGenogram()" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-200">🖨️ 印刷</button>
+        </div>
+        <div id="genogram-container" class="border-2 border-gray-200 rounded-lg bg-gray-50 relative overflow-auto" style="min-height:400px">
+          <svg id="genogram-svg" width="800" height="400" class="w-full"></svg>
+        </div>
+        <div id="geno-member-list" class="mt-3 text-sm text-gray-500"></div>
+      </div>
+      <!-- Ecomap panel -->
+      <div id="panel-ecomap" class="hidden">
+        <div class="flex gap-3 mb-3">
+          <button onclick="addEcomapItem()" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700">＋ 資源を追加</button>
+          <button onclick="printEcomap()" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-200">🖨️ 印刷</button>
+        </div>
+        <div id="ecomap-container" class="border-2 border-gray-200 rounded-lg bg-gray-50" style="min-height:400px">
+          <svg id="ecomap-svg" width="800" height="400" class="w-full"></svg>
+        </div>
+        <div id="ecomap-item-list" class="mt-3 text-sm text-gray-500"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 帳票PDF出力ページ（keikaku） -->
+  <div id="page-forms" class="page p-6 hidden">
+    <div class="bg-white rounded-xl shadow p-4">
+      <h2 class="text-lg font-bold text-gray-800 mb-4">📄 帳票生成・PDF出力</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- サービス等利用計画書 -->
+        <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+          <h4 class="font-bold text-purple-800 mb-2">📋 サービス等利用計画書</h4>
+          <p class="text-xs text-gray-500 mb-3">クライアントの計画書を様式に沿って印刷出力</p>
+          <div><label class="text-xs text-gray-500">クライアント選択</label>
+            <select id="form-client-plan" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
+          </div>
+          <div class="mt-2"><label class="text-xs text-gray-500">計画書を選択</label>
+            <select id="form-plan-sel" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
+          </div>
+          <button onclick="openServicePlanForm()" class="mt-3 bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700 transition text-sm">出力 →</button>
+        </div>
+        <!-- モニタリング報告書 -->
+        <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+          <h4 class="font-bold text-indigo-800 mb-2">📊 モニタリング報告書</h4>
+          <p class="text-xs text-gray-500 mb-3">モニタリング実績を様式に沿って印刷出力</p>
+          <div><label class="text-xs text-gray-500">クライアント選択</label>
+            <select id="form-client-mon" onchange="loadMonitoringList()" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
+          </div>
+          <div class="mt-2"><label class="text-xs text-gray-500">報告書を選択</label>
+            <select id="form-mon-sel" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
+          </div>
+          <button onclick="openMonitoringForm()" class="mt-3 bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700 transition text-sm">出力 →</button>
+        </div>
+      </div>
+      <p class="text-xs text-gray-400 mt-4">※ 出力後、ブラウザの印刷機能（Ctrl+P / Cmd+P）でPDFとして保存できます</p>
+    </div>
+  </div>
 </body></html>`);
 }
 
@@ -1336,7 +1414,407 @@ async function showKkBillingDetail(year, month) {
       <td style="text-align:right">${fmt(data.reduce((s,r)=>s+(r.total_yen||0),0))}</td>
       <td style="text-align:right">${fmt(data.reduce((s,r)=>s+(r.user_burden||0),0))}</td>
       <td style="text-align:right">${fmt(data.reduce((s,r)=>s+(r.subsidy_yen||0),0))}</td>
-    </tr></tfoot></table></body></html>`);
+    </tr></tfoot></table>
+  <!-- ジェノグラム・エコマップページ -->
+  <div id="page-genogram" class="page p-6 hidden">
+    <div class="bg-white rounded-xl shadow p-4 mb-4">
+      <div class="flex items-center gap-4 mb-3">
+        <h2 class="text-lg font-bold text-gray-800">🫂 ジェノグラム・エコマップ</h2>
+        <select id="geno-client-sel" onchange="selectGenoClient()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1 max-w-xs">
+          <option value="">クライアントを選択</option>
+        </select>
+      </div>
+      <!-- Tabs -->
+      <div class="flex gap-2 mb-4 border-b border-gray-200">
+        <button id="tab-genogram" onclick="switchGenoTab('genogram')" class="px-4 py-2 text-sm font-medium border-b-2 border-purple-600 text-purple-600">ジェノグラム</button>
+        <button id="tab-ecomap" onclick="switchGenoTab('ecomap')" class="px-4 py-2 text-sm font-medium text-gray-500 hover:text-purple-600">エコマップ</button>
+      </div>
+      <!-- Genogram panel -->
+      <div id="panel-genogram">
+        <div class="flex gap-3 mb-3 flex-wrap">
+          <button onclick="addGenoMember()" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700">＋ 家族メンバー追加</button>
+          <button onclick="addGenoRelation()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">↔ 関係線追加</button>
+          <button onclick="printGenogram()" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-200">🖨️ 印刷</button>
+        </div>
+        <div id="genogram-container" class="border-2 border-gray-200 rounded-lg bg-gray-50 relative overflow-auto" style="min-height:400px">
+          <svg id="genogram-svg" width="800" height="400" class="w-full"></svg>
+        </div>
+        <div id="geno-member-list" class="mt-3 text-sm text-gray-500"></div>
+      </div>
+      <!-- Ecomap panel -->
+      <div id="panel-ecomap" class="hidden">
+        <div class="flex gap-3 mb-3">
+          <button onclick="addEcomapItem()" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700">＋ 資源を追加</button>
+          <button onclick="printEcomap()" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-200">🖨️ 印刷</button>
+        </div>
+        <div id="ecomap-container" class="border-2 border-gray-200 rounded-lg bg-gray-50" style="min-height:400px">
+          <svg id="ecomap-svg" width="800" height="400" class="w-full"></svg>
+        </div>
+        <div id="ecomap-item-list" class="mt-3 text-sm text-gray-500"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 帳票PDF出力ページ（keikaku） -->
+  <div id="page-forms" class="page p-6 hidden">
+    <div class="bg-white rounded-xl shadow p-4">
+      <h2 class="text-lg font-bold text-gray-800 mb-4">📄 帳票生成・PDF出力</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- サービス等利用計画書 -->
+        <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+          <h4 class="font-bold text-purple-800 mb-2">📋 サービス等利用計画書</h4>
+          <p class="text-xs text-gray-500 mb-3">クライアントの計画書を様式に沿って印刷出力</p>
+          <div><label class="text-xs text-gray-500">クライアント選択</label>
+            <select id="form-client-plan" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
+          </div>
+          <div class="mt-2"><label class="text-xs text-gray-500">計画書を選択</label>
+            <select id="form-plan-sel" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
+          </div>
+          <button onclick="openServicePlanForm()" class="mt-3 bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700 transition text-sm">出力 →</button>
+        </div>
+        <!-- モニタリング報告書 -->
+        <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+          <h4 class="font-bold text-indigo-800 mb-2">📊 モニタリング報告書</h4>
+          <p class="text-xs text-gray-500 mb-3">モニタリング実績を様式に沿って印刷出力</p>
+          <div><label class="text-xs text-gray-500">クライアント選択</label>
+            <select id="form-client-mon" onchange="loadMonitoringList()" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
+          </div>
+          <div class="mt-2"><label class="text-xs text-gray-500">報告書を選択</label>
+            <select id="form-mon-sel" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
+          </div>
+          <button onclick="openMonitoringForm()" class="mt-3 bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700 transition text-sm">出力 →</button>
+        </div>
+      </div>
+      <p class="text-xs text-gray-400 mt-4">※ 出力後、ブラウザの印刷機能（Ctrl+P / Cmd+P）でPDFとして保存できます</p>
+    </div>
+  </div>
+</body></html>`);
+}
+
+// ===== ジェノグラム・エコマップ =====
+let currentGenoClientId = null;
+let genoData = {members:[], relations:[]};
+let ecomapData = [];
+let genoActiveTab = 'genogram';
+
+async function loadGenogramPage() {
+  const clients = await api('/api/clients').catch(()=>[]);
+  const sel = document.getElementById('geno-client-sel');
+  if(sel) sel.innerHTML = '<option value="">クライアントを選択</option>' + clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+}
+
+function switchGenoTab(tab) {
+  genoActiveTab = tab;
+  document.getElementById('panel-genogram').classList.toggle('hidden', tab!=='genogram');
+  document.getElementById('panel-ecomap').classList.toggle('hidden', tab!=='ecomap');
+  document.getElementById('tab-genogram').className = tab==='genogram'
+    ? 'px-4 py-2 text-sm font-medium border-b-2 border-purple-600 text-purple-600'
+    : 'px-4 py-2 text-sm font-medium text-gray-500 hover:text-purple-600';
+  document.getElementById('tab-ecomap').className = tab==='ecomap'
+    ? 'px-4 py-2 text-sm font-medium border-b-2 border-purple-600 text-purple-600'
+    : 'px-4 py-2 text-sm font-medium text-gray-500 hover:text-purple-600';
+}
+
+async function selectGenoClient() {
+  currentGenoClientId = document.getElementById('geno-client-sel').value;
+  if(!currentGenoClientId) return;
+  const data = await api('/api/genogram/'+currentGenoClientId).catch(()=>({members:[],relations:[]}));
+  genoData = data;
+  const eco = await api('/api/ecomap/'+currentGenoClientId).catch(()=>[]);
+  ecomapData = eco;
+  renderGenogram();
+  renderEcomap();
+}
+
+function renderGenogram() {
+  const svg = document.getElementById('genogram-svg');
+  if(!svg) return;
+  const W = 800, H = 400;
+  const memberMap = {};
+  genoData.members.forEach(m => memberMap[m.id] = m);
+
+  // Auto-position members if no position set
+  const members = genoData.members.map((m, i) => ({
+    ...m,
+    x: m.x_pos || 60 + (i % 6) * 120,
+    y: m.y_pos || 80 + Math.floor(i / 6) * 120
+  }));
+
+  // Relation line styles
+  const relStyles = {
+    married: 'stroke:#333;stroke-width:2',
+    divorced: 'stroke:#ef4444;stroke-width:2;stroke-dasharray:4',
+    partner: 'stroke:#3b82f6;stroke-width:2;stroke-dasharray:6',
+    separated: 'stroke:#f97316;stroke-width:2;stroke-dasharray:4',
+    parent_child: 'stroke:#333;stroke-width:1.5',
+    sibling: 'stroke:#333;stroke-width:1.5',
+    close: 'stroke:#22c55e;stroke-width:3',
+    conflict: 'stroke:#ef4444;stroke-width:2;stroke-dasharray:2,3',
+    distant: 'stroke:#9ca3af;stroke-width:1;stroke-dasharray:5',
+  };
+
+  let lines = '';
+  genoData.relations.forEach(r => {
+    const m1 = members.find(m=>m.id===r.member1_id);
+    const m2 = members.find(m=>m.id===r.member2_id);
+    if(!m1||!m2) return;
+    const style = relStyles[r.rel_type] || 'stroke:#666;stroke-width:1';
+    lines += `<line x1="${m1.x}" y1="${m1.y}" x2="${m2.x}" y2="${m2.y}" ${style} opacity="0.8"/>`;
+    if(r.rel_type==='divorced') {
+      const mx=(m1.x+m2.x)/2, my=(m1.y+m2.y)/2;
+      lines += `<line x1="${mx-8}" y1="${my-8}" x2="${mx+8}" y2="${my+8}" stroke="#ef4444" stroke-width="2"/>
+               <line x1="${mx+8}" y1="${my-8}" x2="${mx-8}" y2="${my+8}" stroke="#ef4444" stroke-width="2"/>`;
+    }
+  });
+
+  let nodes = '';
+  members.forEach(m => {
+    const isClient = m.member_type === 'client';
+    const isDeceased = m.is_deceased;
+    const co = m.is_cohabiting ? 'fill:none;stroke:#7c3aed;stroke-width:3' : '';
+    if(m.gender==='female') {
+      // Circle for female
+      const r = isClient ? 22 : 18;
+      nodes += `<circle cx="${m.x}" cy="${m.y}" r="${r}" fill="${isClient?'#ddd6fe':'#fff'}" stroke="${isDeceased?'#ef4444':'#333'}" stroke-width="${isClient?3:2}" style="cursor:pointer" title="${m.name}" onclick="editGenoMember(${m.id})"/>`;
+      if(isDeceased) nodes += `<line x1="${m.x-13}" y1="${m.y-13}" x2="${m.x+13}" y2="${m.y+13}" stroke="#ef4444" stroke-width="2"/>`;
+    } else {
+      // Square for male/unknown
+      const s = isClient ? 38 : 30;
+      nodes += `<rect x="${m.x-s/2}" y="${m.y-s/2}" width="${s}" height="${s}" fill="${isClient?'#ddd6fe':'#fff'}" stroke="${isDeceased?'#ef4444':'#333'}" stroke-width="${isClient?3:2}" style="cursor:pointer" onclick="editGenoMember(${m.id})"/>`;
+      if(isDeceased) nodes += `<line x1="${m.x-s/2}" y1="${m.y-s/2}" x2="${m.x+s/2}" y2="${m.y+s/2}" stroke="#ef4444" stroke-width="2"/>`;
+    }
+    const labelY = m.y + (m.gender==='female' ? (isClient?26:22) : (isClient?24:20));
+    const age = m.age ? `(${m.age})` : '';
+    nodes += `<text x="${m.x}" y="${labelY+14}" text-anchor="middle" font-size="11" fill="#374151">${m.name||'?'}${age}</text>`;
+    if(m.relationship_to_client) {
+      nodes += `<text x="${m.x}" y="${labelY+26}" text-anchor="middle" font-size="9" fill="#6b7280">${m.relationship_to_client}</text>`;
+    }
+  });
+
+  svg.innerHTML = `
+    <defs>
+      <marker id="ah" markerWidth="6" markerHeight="4" refX="0" refY="2" orient="auto">
+        <polygon points="0 0,6 2,0 4" fill="#666"/>
+      </marker>
+    </defs>
+    ${lines}${nodes}
+    ${!members.length ? '<text x="400" y="200" text-anchor="middle" font-size="14" fill="#9ca3af">クライアントを選択してメンバーを追加してください</text>' : ''}`;
+
+  // Member list
+  const listEl = document.getElementById('geno-member-list');
+  if(listEl) {
+    listEl.innerHTML = members.length
+      ? `<div class="flex flex-wrap gap-2">${members.map(m=>`
+          <span class="inline-flex items-center gap-1 bg-gray-100 px-3 py-1 rounded-full text-sm">
+            ${m.gender==='female'?'⭕':'⬜'} ${m.name||'?'}（${m.relationship_to_client||m.member_type}）
+            <button onclick="deleteGenoMember(${m.id})" class="text-red-400 hover:text-red-600 text-xs ml-1">×</button>
+          </span>`).join('')}</div>`
+      : '';
+  }
+}
+
+async function addGenoMember() {
+  if(!currentGenoClientId) { alert('クライアントを選択してください'); return; }
+  const name = prompt('名前（例: 父、母、配偶者）:');
+  if(!name) return;
+  const gender = prompt('性別 (male/female/unknown):','unknown') || 'unknown';
+  const relationship = prompt('本人との関係（例: 父、配偶者、長男）:') || '';
+  const ageStr = prompt('年齢（空白可）:') || '';
+  const age = ageStr ? parseInt(ageStr) : null;
+  const isClient = confirm('本人（クライアント）ですか？') ? 'client' : 'family';
+  const cohabiting = confirm('同居中ですか？') ? 1 : 0;
+  const deceased = confirm('故人ですか？') ? 1 : 0;
+  const xPos = Math.floor(Math.random() * 600) + 100;
+  const yPos = Math.floor(Math.random() * 200) + 100;
+  await api('/api/genogram/member', 'POST', {
+    client_id:parseInt(currentGenoClientId), member_type:isClient,
+    name, gender, age, is_deceased:deceased, is_cohabiting:cohabiting,
+    relationship_to_client:relationship, x_pos:xPos, y_pos:yPos
+  });
+  const data = await api('/api/genogram/'+currentGenoClientId).catch(()=>({members:[],relations:[]}));
+  genoData = data;
+  renderGenogram();
+}
+
+async function editGenoMember(id) {
+  const m = genoData.members.find(x=>x.id===id);
+  if(!m) return;
+  if(confirm(`「${m.name}」を削除しますか？`)) {
+    await deleteGenoMember(id);
+  }
+}
+
+async function deleteGenoMember(id) {
+  await api('/api/genogram/member/'+id, 'DELETE');
+  const data = await api('/api/genogram/'+currentGenoClientId).catch(()=>({members:[],relations:[]}));
+  genoData = data;
+  renderGenogram();
+}
+
+async function addGenoRelation() {
+  if(!currentGenoClientId || !genoData.members.length) { alert('メンバーを追加してから関係線を追加してください'); return; }
+  const names = genoData.members.map((m,i)=>`${i+1}: ${m.name||'?'}(${m.relationship_to_client||m.member_type})`).join('\n');
+  const idx1 = parseInt(prompt(`メンバー1の番号:\n${names}`));
+  const idx2 = parseInt(prompt(`メンバー2の番号:\n${names}`));
+  if(!idx1||!idx2||idx1===idx2) return;
+  const m1 = genoData.members[idx1-1];
+  const m2 = genoData.members[idx2-1];
+  if(!m1||!m2) return;
+  const relTypes = ['married（婚姻）','divorced（離婚）','partner（内縁）','separated（別居）','parent_child（親子）','sibling（兄弟姉妹）','close（強い絆）','conflict（葛藤）','distant（疎遠）'];
+  const relIdx = parseInt(prompt(`関係の種類:\n${relTypes.map((t,i)=>`${i+1}: ${t}`).join('\n')}`));
+  const relKeys = ['married','divorced','partner','separated','parent_child','sibling','close','conflict','distant'];
+  const relType = relKeys[relIdx-1];
+  if(!relType) return;
+  await api('/api/genogram/relation', 'POST', {
+    client_id:parseInt(currentGenoClientId), member1_id:m1.id, member2_id:m2.id, rel_type:relType
+  });
+  const data = await api('/api/genogram/'+currentGenoClientId).catch(()=>({members:[],relations:[]}));
+  genoData = data;
+  renderGenogram();
+}
+
+function printGenogram() {
+  const svg = document.getElementById('genogram-svg');
+  if(!svg) return;
+  const w = window.open('','_blank','width=900,height=600');
+  w.document.write(`<html><head><meta charset="utf-8"><title>ジェノグラム</title>
+    <style>body{margin:0;padding:20px;font-family:sans-serif}svg{max-width:100%;border:1px solid #ddd}
+    @media print{button{display:none}}</style></head><body>
+    <button onclick="window.print()">🖨️ 印刷</button><h2>ジェノグラム</h2>
+    ${svg.outerHTML}</body></html>`);
+}
+
+// ===== エコマップ =====
+const ECOMAP_ICONS = {service:'🏛',medical:'🏥',family:'👨‍👩‍👧',friend:'👥',work:'💼',education:'📚',other:'◎'};
+const ECOMAP_COLORS = {strong:'#22c55e',moderate:'#3b82f6',weak:'#9ca3af',stressed:'#ef4444'};
+const ECOMAP_STRENGTH_JP = {strong:'強い',moderate:'普通',weak:'弱い',stressed:'ストレス'};
+
+function renderEcomap() {
+  const svg = document.getElementById('ecomap-svg');
+  if(!svg) return;
+  const W=800, H=400, cx=W/2, cy=H/2, R=150;
+  const n = ecomapData.length;
+  let items = '';
+  ecomapData.forEach((item, i) => {
+    const angle = (i / Math.max(n,1)) * Math.PI*2 - Math.PI/2;
+    const x = cx + R*Math.cos(angle);
+    const y = cy + R*Math.sin(angle);
+    const color = ECOMAP_COLORS[item.strength] || '#9ca3af';
+    const dash = item.strength==='stressed' ? 'stroke-dasharray:6,3' : '';
+    const width = item.strength==='strong' ? 3 : item.strength==='moderate' ? 2 : 1;
+    items += `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="${color}" stroke-width="${width}" ${dash} opacity="0.8"/>`;
+    // Arrow direction
+    if(item.direction==='to_client'||item.direction==='both') {
+      items += `<polygon points="${cx},${cy} ${cx-6},${cy-6} ${cx+6},${cy-6}" fill="${color}" transform="rotate(${angle*180/Math.PI+90},${cx},${cy})"/>`;
+    }
+    items += `<ellipse cx="${x}" cy="${y}" rx="40" ry="22" fill="white" stroke="${color}" stroke-width="2"/>`;
+    items += `<text x="${x}" y="${y-4}" text-anchor="middle" font-size="14">${ECOMAP_ICONS[item.item_type]||'◎'}</text>`;
+    items += `<text x="${x}" y="${y+10}" text-anchor="middle" font-size="9" fill="#374151">${item.item_name.slice(0,8)}</text>`;
+    items += `<text x="${x}" y="${y+22}" text-anchor="middle" font-size="8" fill="${color}">${ECOMAP_STRENGTH_JP[item.strength]||''}</text>`;
+  });
+  // Client circle in center
+  const client = document.getElementById('geno-client-sel');
+  const clientName = client?.options[client.selectedIndex]?.text || '本人';
+  svg.innerHTML = `
+    ${items}
+    <circle cx="${cx}" cy="${cy}" r="42" fill="#ddd6fe" stroke="#7c3aed" stroke-width="3"/>
+    <text x="${cx}" y="${cy-6}" text-anchor="middle" font-size="13" fill="#374151" font-weight="bold">本人</text>
+    <text x="${cx}" y="${cy+10}" text-anchor="middle" font-size="10" fill="#7c3aed">${clientName.slice(0,6)}</text>
+    ${!n?'<text x="400" y="380" text-anchor="middle" font-size="12" fill="#9ca3af">「資源を追加」ボタンでエコマップを作成</text>':''}`;
+
+  const listEl = document.getElementById('ecomap-item-list');
+  if(listEl) {
+    listEl.innerHTML = ecomapData.length
+      ? `<div class="flex flex-wrap gap-2">${ecomapData.map(item=>`
+          <span class="inline-flex items-center gap-1 bg-gray-100 px-3 py-1 rounded-full text-sm" style="border-left:3px solid ${ECOMAP_COLORS[item.strength]}">
+            ${ECOMAP_ICONS[item.item_type]||''} ${item.item_name}（${ECOMAP_STRENGTH_JP[item.strength]}）
+            <button onclick="deleteEcomapItem(${item.id})" class="text-red-400 hover:text-red-600 text-xs ml-1">×</button>
+          </span>`).join('')}</div>`
+      : '';
+  }
+}
+
+async function addEcomapItem() {
+  if(!currentGenoClientId) { alert('クライアントを選択してください'); return; }
+  const name = prompt('資源・関係機関の名前（例: ○○デイサービス、主治医、家族）:');
+  if(!name) return;
+  const typeMap = ['service（福祉サービス）','medical（医療）','family（家族）','friend（友人・近隣）','work（仕事）','education（学校・教育）','other（その他）'];
+  const typeIdx = parseInt(prompt(`種別:\n${typeMap.map((t,i)=>`${i+1}: ${t}`).join('\n')}`));
+  const typeKeys = ['service','medical','family','friend','work','education','other'];
+  const itemType = typeKeys[typeIdx-1] || 'other';
+  const strMap = ['1: 強い（実線・太）','2: 普通（実線）','3: 弱い（細線）','4: ストレス（赤い破線）'];
+  const strIdx = parseInt(prompt(`関係の強度:\n${strMap.join('\n')}`));
+  const strKeys = ['strong','moderate','weak','stressed'];
+  const strength = strKeys[strIdx-1] || 'moderate';
+  const dirMap = ['1: 双方向','2: 本人への支援','3: 本人からの働きかけ'];
+  const dirIdx = parseInt(prompt(`方向性:\n${dirMap.join('\n')}`));
+  const dirKeys = ['both','to_client','from_client'];
+  const direction = dirKeys[dirIdx-1] || 'both';
+  await api('/api/ecomap/item', 'POST', {
+    client_id:parseInt(currentGenoClientId), item_name:name,
+    item_type:itemType, strength, direction, notes:''
+  });
+  ecomapData = await api('/api/ecomap/'+currentGenoClientId).catch(()=>[]);
+  renderEcomap();
+}
+
+async function deleteEcomapItem(id) {
+  await api('/api/ecomap/item/'+id, 'DELETE');
+  ecomapData = await api('/api/ecomap/'+currentGenoClientId).catch(()=>[]);
+  renderEcomap();
+}
+
+function printEcomap() {
+  const svg = document.getElementById('ecomap-svg');
+  if(!svg) return;
+  const w = window.open('','_blank','width=900,height=600');
+  w.document.write(`<html><head><meta charset="utf-8"><title>エコマップ</title>
+    <style>body{margin:0;padding:20px;font-family:sans-serif}@media print{button{display:none}}</style></head><body>
+    <button onclick="window.print()">🖨️ 印刷</button><h2>エコマップ</h2>${svg.outerHTML}</body></html>`);
+}
+
+// ===== 帳票PDF出力（keikaku） =====
+async function loadKkFormsPage() {
+  const clients = await api('/api/clients').catch(()=>[]);
+  const opts = '<option value="">選択してください</option>' + clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  ['form-client-plan','form-client-mon'].forEach(id => {
+    const el = document.getElementById(id);
+    if(el) el.innerHTML = opts;
+  });
+  document.getElementById('form-client-plan').onchange = loadPlanList;
+  loadPlanList();
+}
+
+async function loadPlanList() {
+  const clientId = document.getElementById('form-client-plan').value;
+  const sel = document.getElementById('form-plan-sel');
+  if(!clientId) { sel.innerHTML = '<option value="">—</option>'; return; }
+  const plans = await api('/api/service-plans?client_id='+clientId).catch(()=>[]);
+  sel.innerHTML = plans.length
+    ? plans.map(p=>`<option value="${p.id}">${p.created_date||'日付不明'} 第${p.version||1}版</option>`).join('')
+    : '<option value="">計画書なし</option>';
+}
+
+async function loadMonitoringList() {
+  const clientId = document.getElementById('form-client-mon').value;
+  const sel = document.getElementById('form-mon-sel');
+  if(!clientId) { sel.innerHTML = '<option value="">—</option>'; return; }
+  const reports = await api('/api/monitoring-reports?client_id='+clientId).catch(()=>[]);
+  sel.innerHTML = reports.length
+    ? reports.map(r=>`<option value="${r.id}">${r.monitor_date||'日付不明'}</option>`).join('')
+    : '<option value="">報告書なし</option>';
+}
+
+function openServicePlanForm() {
+  const planId = document.getElementById('form-plan-sel').value;
+  if(!planId) { alert('計画書を選択してください'); return; }
+  window.open('/keikaku/api/forms/service-plan/'+planId, '_blank');
+}
+
+function openMonitoringForm() {
+  const reportId = document.getElementById('form-mon-sel').value;
+  if(!reportId) { alert('報告書を選択してください'); return; }
+  window.open('/keikaku/api/forms/monitoring/'+reportId, '_blank');
 }
 
 </script>
@@ -1491,6 +1969,80 @@ async function showKkBillingDetail(year, month) {
     <div class="bg-white rounded-xl shadow p-4">
       <h2 class="text-lg font-bold text-gray-800 mb-3">📋 請求履歴</h2>
       <div id="kk-billing-history-list" class="text-sm text-gray-500">読み込み中...</div>
+    </div>
+  </div>
+
+  <!-- ジェノグラム・エコマップページ -->
+  <div id="page-genogram" class="page p-6 hidden">
+    <div class="bg-white rounded-xl shadow p-4 mb-4">
+      <div class="flex items-center gap-4 mb-3">
+        <h2 class="text-lg font-bold text-gray-800">🫂 ジェノグラム・エコマップ</h2>
+        <select id="geno-client-sel" onchange="selectGenoClient()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1 max-w-xs">
+          <option value="">クライアントを選択</option>
+        </select>
+      </div>
+      <!-- Tabs -->
+      <div class="flex gap-2 mb-4 border-b border-gray-200">
+        <button id="tab-genogram" onclick="switchGenoTab('genogram')" class="px-4 py-2 text-sm font-medium border-b-2 border-purple-600 text-purple-600">ジェノグラム</button>
+        <button id="tab-ecomap" onclick="switchGenoTab('ecomap')" class="px-4 py-2 text-sm font-medium text-gray-500 hover:text-purple-600">エコマップ</button>
+      </div>
+      <!-- Genogram panel -->
+      <div id="panel-genogram">
+        <div class="flex gap-3 mb-3 flex-wrap">
+          <button onclick="addGenoMember()" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700">＋ 家族メンバー追加</button>
+          <button onclick="addGenoRelation()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">↔ 関係線追加</button>
+          <button onclick="printGenogram()" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-200">🖨️ 印刷</button>
+        </div>
+        <div id="genogram-container" class="border-2 border-gray-200 rounded-lg bg-gray-50 relative overflow-auto" style="min-height:400px">
+          <svg id="genogram-svg" width="800" height="400" class="w-full"></svg>
+        </div>
+        <div id="geno-member-list" class="mt-3 text-sm text-gray-500"></div>
+      </div>
+      <!-- Ecomap panel -->
+      <div id="panel-ecomap" class="hidden">
+        <div class="flex gap-3 mb-3">
+          <button onclick="addEcomapItem()" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700">＋ 資源を追加</button>
+          <button onclick="printEcomap()" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-200">🖨️ 印刷</button>
+        </div>
+        <div id="ecomap-container" class="border-2 border-gray-200 rounded-lg bg-gray-50" style="min-height:400px">
+          <svg id="ecomap-svg" width="800" height="400" class="w-full"></svg>
+        </div>
+        <div id="ecomap-item-list" class="mt-3 text-sm text-gray-500"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 帳票PDF出力ページ（keikaku） -->
+  <div id="page-forms" class="page p-6 hidden">
+    <div class="bg-white rounded-xl shadow p-4">
+      <h2 class="text-lg font-bold text-gray-800 mb-4">📄 帳票生成・PDF出力</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <!-- サービス等利用計画書 -->
+        <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
+          <h4 class="font-bold text-purple-800 mb-2">📋 サービス等利用計画書</h4>
+          <p class="text-xs text-gray-500 mb-3">クライアントの計画書を様式に沿って印刷出力</p>
+          <div><label class="text-xs text-gray-500">クライアント選択</label>
+            <select id="form-client-plan" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
+          </div>
+          <div class="mt-2"><label class="text-xs text-gray-500">計画書を選択</label>
+            <select id="form-plan-sel" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
+          </div>
+          <button onclick="openServicePlanForm()" class="mt-3 bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700 transition text-sm">出力 →</button>
+        </div>
+        <!-- モニタリング報告書 -->
+        <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
+          <h4 class="font-bold text-indigo-800 mb-2">📊 モニタリング報告書</h4>
+          <p class="text-xs text-gray-500 mb-3">モニタリング実績を様式に沿って印刷出力</p>
+          <div><label class="text-xs text-gray-500">クライアント選択</label>
+            <select id="form-client-mon" onchange="loadMonitoringList()" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
+          </div>
+          <div class="mt-2"><label class="text-xs text-gray-500">報告書を選択</label>
+            <select id="form-mon-sel" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
+          </div>
+          <button onclick="openMonitoringForm()" class="mt-3 bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700 transition text-sm">出力 →</button>
+        </div>
+      </div>
+      <p class="text-xs text-gray-400 mt-4">※ 出力後、ブラウザの印刷機能（Ctrl+P / Cmd+P）でPDFとして保存できます</p>
     </div>
   </div>
 </body>
