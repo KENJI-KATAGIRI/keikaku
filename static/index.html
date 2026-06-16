@@ -90,6 +90,8 @@ body { font-family: "Noto Sans JP", sans-serif; }
       <div class="border-t border-purple-700 my-2"></div>
       <button onclick="showPage('bcp')" id="nav-bcp" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">🛡️ BCP・虐待防止</button>
       <button onclick="showPage('kasan')" id="nav-kasan" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">💴 加算管理</button>
+      <button onclick="showPage('hospitalization')" id="nav-hospitalization" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">🏥 入退院管理</button>
+      <button onclick="showPage('signatures')" id="nav-signatures" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">✍️ 電子署名</button>
       <button onclick="doLogout()" class="w-full text-left px-3 py-2 rounded-lg mt-4 text-purple-300 hover:text-white hover:bg-purple-800 transition">🚪 ログアウト</button>
     </nav>
   </div>
@@ -644,6 +646,8 @@ function showApp() {
 function showPage(page) {
   if (page === 'bcp') loadKkBcpPage();
   if (page === 'kasan') loadKkKasanPage();
+  if (page === 'hospitalization') loadKkHospitalizationPage();
+  if (page === 'signatures') loadKkSignaturesPage();
   document.querySelectorAll(".page").forEach(p => p.classList.add("hidden"));
   document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("bg-purple-700"));
   const el = document.getElementById("page-"+page);
@@ -925,6 +929,306 @@ async function saveKkKasan() {
   loadKkKasanPage();
 }
 
+// ===== 入退院管理 =====
+async function loadKkHospitalizationPage() {
+  const clients = await api('/api/clients').catch(()=>[]);
+  const clientSel = document.getElementById('hosp-client');
+  const filterSel = document.getElementById('hosp-filter-client');
+  const opts = clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  clientSel.innerHTML = '<option value="">選択してください</option>' + opts;
+  filterSel.innerHTML = '<option value="">全クライアント</option>' + opts;
+  // Show kasan eligibility banner
+  const kasanData = await api('/api/hospitalization-kasan').catch(()=>[]);
+  const banner = document.getElementById('hosp-kasan-banner');
+  const eligible1 = kasanData.filter(r=>r.kasan_I_eligible && r.status==='admitted').length;
+  const eligible2 = kasanData.filter(r=>r.kasan_II_eligible && r.status==='admitted').length;
+  const withConf = kasanData.filter(r=>r.discharge_kasan_count>0).length;
+  banner.innerHTML = `<div class="grid grid-cols-3 gap-3 mb-2">
+    <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+      <div class="text-2xl font-bold text-blue-600">${eligible1}</div>
+      <div class="text-xs text-blue-500">入院時情報連携加算(Ⅰ)算定可</div>
+      <div class="text-xs text-gray-400">200単位/月</div>
+    </div>
+    <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3 text-center">
+      <div class="text-2xl font-bold text-indigo-600">${eligible2}</div>
+      <div class="text-xs text-indigo-500">入院時情報連携加算(Ⅱ)算定可</div>
+      <div class="text-xs text-gray-400">100単位/月</div>
+    </div>
+    <div class="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+      <div class="text-2xl font-bold text-green-600">${withConf}</div>
+      <div class="text-xs text-green-500">退院・退所加算 実績あり</div>
+      <div class="text-xs text-gray-400">200単位/回×3</div>
+    </div>
+  </div>`;
+  filterHospitalizations();
+}
+
+async function filterHospitalizations() {
+  const clientId = document.getElementById('hosp-filter-client').value;
+  let url = '/api/hospitalizations';
+  if(clientId) url += '?client_id=' + clientId;
+  const data = await api(url).catch(()=>[]);
+  const listEl = document.getElementById('hosp-list');
+  if(!data.length) { listEl.innerHTML = '<p class="text-gray-400 py-4">入退院記録がありません</p>'; return; }
+  const statusLabels = {admitted:'入院中', discharged:'退院済', other:'その他'};
+  listEl.innerHTML = `<div class="overflow-x-auto"><table class="w-full border-collapse text-sm min-w-max">
+    <thead><tr class="bg-purple-100 text-purple-800">
+      <th class="px-3 py-2 text-left">クライアント</th><th class="px-3 py-2 text-left">病院名</th>
+      <th class="px-3 py-2 text-left">入院日</th><th class="px-3 py-2 text-left">情報提供日</th>
+      <th class="px-3 py-2 text-left">提供方法</th><th class="px-3 py-2 text-center">カンファ</th>
+      <th class="px-3 py-2 text-left">退院日</th><th class="px-3 py-2 text-left">状態</th><th class="px-3 py-2"></th>
+    </tr></thead>
+    <tbody>${data.map(r=>{
+      const confCount = [r.conference1_date,r.conference2_date,r.conference3_date].filter(Boolean).length;
+      const kasanI = r.info_provided_date && ['対面','ICT'].includes(r.info_provided_method);
+      return `<tr class="border-t border-gray-100 hover:bg-gray-50">
+        <td class="px-3 py-2 font-medium">${r.client_name||''}</td>
+        <td class="px-3 py-2 text-gray-600">${r.hospital_name||'—'}</td>
+        <td class="px-3 py-2 text-gray-600">${r.admission_date}</td>
+        <td class="px-3 py-2 text-gray-600">${r.info_provided_date||'—'}</td>
+        <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs ${kasanI?'bg-blue-100 text-blue-700':'bg-gray-100 text-gray-500'}">${r.info_provided_method||'—'}</span></td>
+        <td class="px-3 py-2 text-center"><span class="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs">${confCount}/3回</span></td>
+        <td class="px-3 py-2 text-gray-600">${r.discharge_date||'—'}</td>
+        <td class="px-3 py-2"><span class="px-2 py-0.5 rounded text-xs ${r.status==='admitted'?'bg-red-100 text-red-700':'bg-gray-100 text-gray-500'}">${statusLabels[r.status]||r.status}</span></td>
+        <td class="px-3 py-2"><button onclick="deleteHospitalization(${r.id})" class="text-red-400 hover:text-red-600 text-xs">削除</button></td>
+      </tr>`;
+    }).join('')}</tbody></table></div>`;
+}
+
+async function saveHospitalization() {
+  const clientId = document.getElementById('hosp-client').value;
+  const admissionDate = document.getElementById('hosp-admission-date').value;
+  if(!clientId || !admissionDate) { alert('クライアントと入院日を選択してください'); return; }
+  const body = {
+    client_id: parseInt(clientId),
+    hospital_name: document.getElementById('hosp-hospital').value,
+    admission_date: admissionDate,
+    info_provided_date: document.getElementById('hosp-info-date').value,
+    info_provided_method: document.getElementById('hosp-info-method').value,
+    info_provided_content: document.getElementById('hosp-info-content').value,
+    conference1_date: document.getElementById('hosp-conf1').value,
+    conference2_date: document.getElementById('hosp-conf2').value,
+    conference3_date: document.getElementById('hosp-conf3').value,
+    discharge_date: document.getElementById('hosp-discharge').value,
+    discharge_conference_date: document.getElementById('hosp-discharge-conf').value,
+    status: document.getElementById('hosp-discharge').value ? 'discharged' : 'admitted',
+    notes: document.getElementById('hosp-notes').value
+  };
+  await api('/api/hospitalizations', 'POST', body);
+  alert('入退院情報を保存しました');
+  ['hosp-hospital','hosp-admission-date','hosp-info-date','hosp-info-content',
+   'hosp-conf1','hosp-conf2','hosp-conf3','hosp-discharge','hosp-discharge-conf','hosp-notes']
+   .forEach(id => { const el=document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('hosp-info-method').value = '';
+  filterHospitalizations();
+  loadKkHospitalizationPage();
+}
+
+async function deleteHospitalization(id) {
+  if(!confirm('この入退院記録を削除しますか？')) return;
+  await api('/api/hospitalizations/'+id, 'DELETE');
+  filterHospitalizations();
+}
+
+// ===== 電子署名（keikaku） =====
+let kkSigCanvas, kkSigCtx, kkSigDrawing = false, kkSigLastX = 0, kkSigLastY = 0;
+
+function kkInitSignatureCanvas() {
+  kkSigCanvas = document.getElementById('kk-sig-canvas'); if(!kkSigCanvas) return;
+  kkSigCtx = kkSigCanvas.getContext('2d');
+  kkSigCtx.strokeStyle = '#1a1a2e';
+  kkSigCtx.lineWidth = 2;
+  kkSigCtx.lineCap = 'round';
+  kkSigCtx.lineJoin = 'round';
+  const getPos = (e) => {
+    const r = kkSigCanvas.getBoundingClientRect();
+    const scaleX = kkSigCanvas.width/r.width, scaleY = kkSigCanvas.height/r.height;
+    const touch = e.touches?e.touches[0]:e;
+    return {x:(touch.clientX-r.left)*scaleX, y:(touch.clientY-r.top)*scaleY};
+  };
+  kkSigCanvas.onmousedown = (e) => { kkSigDrawing=true; const p=getPos(e); kkSigLastX=p.x; kkSigLastY=p.y; };
+  kkSigCanvas.onmousemove = (e) => {
+    if(!kkSigDrawing) return;
+    const p=getPos(e);
+    kkSigCtx.beginPath(); kkSigCtx.moveTo(kkSigLastX,kkSigLastY); kkSigCtx.lineTo(p.x,p.y); kkSigCtx.stroke();
+    kkSigLastX=p.x; kkSigLastY=p.y;
+  };
+  kkSigCanvas.onmouseup = kkSigCanvas.onmouseleave = () => { kkSigDrawing=false; };
+  kkSigCanvas.ontouchstart = (e) => { e.preventDefault(); kkSigDrawing=true; const p=getPos(e); kkSigLastX=p.x; kkSigLastY=p.y; };
+  kkSigCanvas.ontouchmove = (e) => {
+    e.preventDefault(); if(!kkSigDrawing) return;
+    const p=getPos(e);
+    kkSigCtx.beginPath(); kkSigCtx.moveTo(kkSigLastX,kkSigLastY); kkSigCtx.lineTo(p.x,p.y); kkSigCtx.stroke();
+    kkSigLastX=p.x; kkSigLastY=p.y;
+  };
+  kkSigCanvas.ontouchend = () => { kkSigDrawing=false; };
+}
+
+function kkClearSignature() {
+  if(kkSigCtx) kkSigCtx.clearRect(0, 0, kkSigCanvas.width, kkSigCanvas.height);
+}
+
+async function loadKkSignaturesPage() {
+  kkInitSignatureCanvas();
+  const clients = await api('/api/clients').catch(()=>[]);
+  const clientSel = document.getElementById('kk-sig-client');
+  const filterSel = document.getElementById('kk-sig-filter-client');
+  const opts = clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  clientSel.innerHTML = '<option value="">選択してください</option>' + opts;
+  filterSel.innerHTML = '<option value="">全クライアント</option>' + opts;
+  filterKkSignatures();
+}
+
+async function filterKkSignatures() {
+  const clientId = document.getElementById('kk-sig-filter-client').value;
+  let url = '/api/signatures?entity_type=client';
+  if(clientId) url += '&entity_id=' + clientId;
+  const data = await api(url).catch(()=>[]);
+  const listEl = document.getElementById('kk-sig-list');
+  if(!data.length) { listEl.innerHTML = '<p class="text-gray-400 py-4">署名済み書類がありません</p>'; return; }
+  listEl.innerHTML = `<table class="w-full border-collapse text-sm">
+    <thead><tr class="bg-purple-100 text-purple-800">
+      <th class="px-3 py-2 text-left">クライアントID</th><th class="px-3 py-2 text-left">書類種別</th>
+      <th class="px-3 py-2 text-left">署名者</th><th class="px-3 py-2 text-left">署名日時</th><th class="px-3 py-2"></th>
+    </tr></thead>
+    <tbody>${data.map(r=>`<tr class="border-t border-gray-100 hover:bg-gray-50">
+      <td class="px-3 py-2 text-gray-600">${r.entity_id}</td>
+      <td class="px-3 py-2 font-medium">${r.doc_type}</td>
+      <td class="px-3 py-2 text-gray-600">${r.signer_name||'—'}</td>
+      <td class="px-3 py-2 text-gray-500 text-xs">${r.signed_at}</td>
+      <td class="px-3 py-2">
+        <button onclick="kkViewSignature(${r.id})" class="text-blue-500 hover:text-blue-700 text-xs mr-2">確認</button>
+        <button onclick="kkDeleteSignature(${r.id})" class="text-red-400 hover:text-red-600 text-xs">削除</button>
+      </td>
+    </tr>`).join('')}</tbody></table>`;
+}
+
+async function kkSaveSignature() {
+  const clientId = document.getElementById('kk-sig-client').value;
+  const docType = document.getElementById('kk-sig-doc-type').value;
+  const signerName = document.getElementById('kk-sig-signer').value;
+  if(!clientId) { alert('クライアントを選択してください'); return; }
+  if(!kkSigCanvas) { alert('署名欄を初期化できませんでした'); return; }
+  const pixels = kkSigCtx.getImageData(0,0,kkSigCanvas.width,kkSigCanvas.height).data;
+  if(!pixels.some((v,i)=>i%4===3&&v>0)) { alert('署名を入力してください'); return; }
+  const imgData = kkSigCanvas.toDataURL('image/png');
+  const now = new Date().toISOString().replace('T',' ').slice(0,19);
+  await api('/api/signatures', 'POST', {
+    entity_type:'client', entity_id:parseInt(clientId),
+    doc_type:docType, signer_name:signerName,
+    signed_at:now, signature_data:imgData, notes:''
+  });
+  alert('署名を保存しました');
+  kkClearSignature();
+  filterKkSignatures();
+}
+
+async function kkViewSignature(id) {
+  const res = await api('/api/signatures/'+id+'/data').catch(()=>null);
+  if(!res) { alert('署名データを取得できませんでした'); return; }
+  const w = window.open('','_blank','width=650,height=300');
+  w.document.write(`<html><body style="margin:0;background:#f5f5f5;display:flex;align-items:center;justify-content:center"><img src="${res.signature_data}" style="max-width:600px;border:1px solid #ccc;background:white"></body></html>`);
+}
+
+async function kkDeleteSignature(id) {
+  if(!confirm('この署名を削除しますか？')) return;
+  await api('/api/signatures/'+id, 'DELETE');
+  filterKkSignatures();
+}
+
 </script>
+
+  <!-- 入退院管理ページ -->
+  <div id="page-hospitalization" class="page p-6 hidden">
+    <div id="hosp-kasan-banner" class="mb-4"></div>
+    <div class="bg-white rounded-xl shadow p-4 mb-4">
+      <h2 class="text-lg font-bold text-gray-800 mb-3">🏥 入院情報 新規登録</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+        <div><label class="text-xs text-gray-500">担当クライアント</label>
+          <select id="hosp-client" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select></div>
+        <div><label class="text-xs text-gray-500">病院名</label>
+          <input type="text" id="hosp-hospital" placeholder="○○病院" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+        <div><label class="text-xs text-gray-500">入院日</label>
+          <input type="date" id="hosp-admission-date" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+      </div>
+      <div class="bg-blue-50 rounded-lg p-3 mb-3">
+        <p class="text-xs font-bold text-blue-700 mb-2">入院時情報連携加算 算定要件</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div><label class="text-xs text-gray-500">入院情報提供日</label>
+            <input type="date" id="hosp-info-date" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+          <div><label class="text-xs text-gray-500">提供方法（加算Ⅰ=対面/ICT）</label>
+            <select id="hosp-info-method" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm">
+              <option value="">—</option><option>対面</option><option>ICT</option><option>書面</option><option>FAX</option>
+            </select></div>
+          <div><label class="text-xs text-gray-500">提供内容（要約）</label>
+            <input type="text" id="hosp-info-content" placeholder="本人・家族状況、支援内容等" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+        </div>
+      </div>
+      <div class="bg-green-50 rounded-lg p-3 mb-3">
+        <p class="text-xs font-bold text-green-700 mb-2">退院・退所加算 算定要件（カンファレンス、最大3回）</p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div><label class="text-xs text-gray-500">カンファレンス①</label>
+            <input type="date" id="hosp-conf1" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+          <div><label class="text-xs text-gray-500">カンファレンス②</label>
+            <input type="date" id="hosp-conf2" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+          <div><label class="text-xs text-gray-500">カンファレンス③</label>
+            <input type="date" id="hosp-conf3" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-2">
+          <div><label class="text-xs text-gray-500">退院日</label>
+            <input type="date" id="hosp-discharge" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+          <div><label class="text-xs text-gray-500">退院時カンファレンス日</label>
+            <input type="date" id="hosp-discharge-conf" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+        </div>
+      </div>
+      <textarea id="hosp-notes" rows="2" placeholder="備考" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm resize-none mb-3"></textarea>
+      <button onclick="saveHospitalization()" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition text-sm">💾 保存</button>
+    </div>
+    <div class="bg-white rounded-xl shadow p-4">
+      <h2 class="text-lg font-bold text-gray-800 mb-3">📋 入退院記録一覧</h2>
+      <div class="mb-3">
+        <select id="hosp-filter-client" onchange="filterHospitalizations()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm">
+          <option value="">全クライアント</option>
+        </select>
+      </div>
+      <div id="hosp-list" class="text-sm text-gray-500">読み込み中...</div>
+    </div>
+  </div>
+
+  <!-- 電子署名ページ（keikaku） -->
+  <div id="page-signatures" class="page p-6 hidden">
+    <div class="bg-white rounded-xl shadow p-4 mb-4">
+      <h2 class="text-lg font-bold text-gray-800 mb-3">✍️ 電子署名 収集</h2>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
+        <div><label class="text-xs text-gray-500">クライアント</label>
+          <select id="kk-sig-client" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select></div>
+        <div><label class="text-xs text-gray-500">書類種別</label>
+          <select id="kk-sig-doc-type" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm">
+            <option>サービス等利用計画</option><option>モニタリング報告書</option>
+            <option>利用契約書</option><option>重要事項説明書</option>
+            <option>個人情報同意書</option><option>その他</option>
+          </select></div>
+        <div><label class="text-xs text-gray-500">署名者名</label>
+          <input type="text" id="kk-sig-signer" placeholder="例: 山田 太郎" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+      </div>
+      <div class="mb-3">
+        <label class="text-xs text-gray-500 block mb-1">署名欄（マウスまたはタッチで署名してください）</label>
+        <canvas id="kk-sig-canvas" width="600" height="160" class="border-2 border-gray-300 rounded-lg bg-white cursor-crosshair w-full" style="touch-action:none"></canvas>
+      </div>
+      <div class="flex gap-3">
+        <button onclick="kkClearSignature()" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg hover:bg-gray-200 transition text-sm">🗑️ クリア</button>
+        <button onclick="kkSaveSignature()" class="bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition text-sm">💾 署名保存</button>
+      </div>
+    </div>
+    <div class="bg-white rounded-xl shadow p-4">
+      <h2 class="text-lg font-bold text-gray-800 mb-3">📋 署名済み書類一覧</h2>
+      <div class="mb-3">
+        <select id="kk-sig-filter-client" onchange="filterKkSignatures()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm">
+          <option value="">全クライアント</option>
+        </select>
+      </div>
+      <div id="kk-sig-list" class="text-sm text-gray-500">読み込み中...</div>
+    </div>
+  </div>
 </body>
 </html>

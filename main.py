@@ -961,6 +961,147 @@ def compliance_status(request: Request):
         }
     finally: db.close()
 
+
+
+# ===== 入退院情報・医療連携記録 =====
+class HospitalizationReq(BaseModel):
+    client_id: int
+    hospital_name: Optional[str] = ""
+    admission_date: str
+    notification_received_date: Optional[str] = ""
+    info_provided_date: Optional[str] = ""
+    info_provided_method: Optional[str] = ""
+    info_provided_content: Optional[str] = ""
+    conference1_date: Optional[str] = ""
+    conference2_date: Optional[str] = ""
+    conference3_date: Optional[str] = ""
+    discharge_date: Optional[str] = ""
+    discharge_conference_date: Optional[str] = ""
+    status: Optional[str] = "admitted"
+    notes: Optional[str] = ""
+
+class DocSignatureReq(BaseModel):
+    entity_type: str
+    entity_id: int
+    doc_type: str
+    signer_name: Optional[str] = ""
+    signed_at: str
+    signature_data: str
+    notes: Optional[str] = ""
+
+@app.get("/api/hospitalizations")
+def get_hospitalizations(request: Request, client_id: Optional[int] = None):
+    oid = current_office(request)
+    db = get_db(); check_active(oid, db)
+    q = """SELECT h.*, c.name as client_name
+           FROM hospitalization_records h JOIN clients c ON c.id=h.client_id
+           WHERE h.office_id=?"""
+    params = [oid]
+    if client_id: q += " AND h.client_id=?"; params.append(client_id)
+    q += " ORDER BY h.admission_date DESC"
+    rows = db.execute(q, params).fetchall()
+    db.close(); return [dict(r) for r in rows]
+
+@app.post("/api/hospitalizations")
+def create_hospitalization(body: HospitalizationReq, request: Request):
+    oid = current_office(request)
+    db = get_db(); check_active(oid, db)
+    db.execute("""INSERT INTO hospitalization_records
+        (office_id,client_id,hospital_name,admission_date,notification_received_date,
+         info_provided_date,info_provided_method,info_provided_content,
+         conference1_date,conference2_date,conference3_date,
+         discharge_date,discharge_conference_date,status,notes)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (oid,body.client_id,body.hospital_name,body.admission_date,
+         body.notification_received_date,body.info_provided_date,
+         body.info_provided_method,body.info_provided_content,
+         body.conference1_date,body.conference2_date,body.conference3_date,
+         body.discharge_date,body.discharge_conference_date,body.status,body.notes))
+    db.commit(); db.close(); return {"ok": True}
+
+@app.put("/api/hospitalizations/{hid}")
+def update_hospitalization(hid: int, body: HospitalizationReq, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    db.execute("""UPDATE hospitalization_records SET
+        hospital_name=?,admission_date=?,notification_received_date=?,
+        info_provided_date=?,info_provided_method=?,info_provided_content=?,
+        conference1_date=?,conference2_date=?,conference3_date=?,
+        discharge_date=?,discharge_conference_date=?,status=?,notes=?
+        WHERE id=? AND office_id=?""",
+        (body.hospital_name,body.admission_date,body.notification_received_date,
+         body.info_provided_date,body.info_provided_method,body.info_provided_content,
+         body.conference1_date,body.conference2_date,body.conference3_date,
+         body.discharge_date,body.discharge_conference_date,body.status,body.notes,
+         hid,oid))
+    db.commit(); db.close(); return {"ok": True}
+
+@app.delete("/api/hospitalizations/{hid}")
+def delete_hospitalization(hid: int, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    db.execute("DELETE FROM hospitalization_records WHERE id=? AND office_id=?", (hid, oid))
+    db.commit(); db.close(); return {"ok": True}
+
+@app.get("/api/hospitalization-kasan")
+def get_hosp_kasan(request: Request, client_id: Optional[int] = None):
+    """入院時情報連携加算・退院退所加算の算定可否チェック"""
+    oid = current_office(request)
+    db = get_db(); check_active(oid, db)
+    q = """SELECT h.*, c.name as client_name
+           FROM hospitalization_records h JOIN clients c ON c.id=h.client_id
+           WHERE h.office_id=?"""
+    params = [oid]
+    if client_id: q += " AND h.client_id=?"; params.append(client_id)
+    rows = db.execute(q, params).fetchall()
+    result = []
+    for r in rows:
+        r = dict(r)
+        conf_dates = [r["conference1_date"], r["conference2_date"], r["conference3_date"]]
+        conf_count = sum(1 for d in conf_dates if d)
+        r["kasan_I_eligible"] = bool(r["info_provided_date"]) and r["info_provided_method"] in ["対面","ICT"]
+        r["kasan_II_eligible"] = bool(r["info_provided_date"])
+        r["discharge_kasan_count"] = conf_count
+        r["discharge_kasan_max"] = 3
+        result.append(r)
+    db.close(); return result
+
+@app.get("/api/signatures")
+def get_signatures_kk(request: Request, entity_type: Optional[str] = None, entity_id: Optional[int] = None):
+    oid = current_office(request)
+    db = get_db()
+    q = "SELECT id, entity_type, entity_id, doc_type, signer_name, signed_at, notes FROM doc_signatures WHERE office_id=?"
+    params = [oid]
+    if entity_type: q += " AND entity_type=?"; params.append(entity_type)
+    if entity_id: q += " AND entity_id=?"; params.append(entity_id)
+    q += " ORDER BY signed_at DESC"
+    rows = db.execute(q, params).fetchall()
+    db.close(); return [dict(r) for r in rows]
+
+@app.post("/api/signatures")
+def create_signature_kk(body: DocSignatureReq, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    db.execute("INSERT INTO doc_signatures (office_id,entity_type,entity_id,doc_type,signer_name,signed_at,signature_data,notes) VALUES (?,?,?,?,?,?,?,?)",
+        (oid,body.entity_type,body.entity_id,body.doc_type,body.signer_name,body.signed_at,body.signature_data,body.notes))
+    db.commit(); db.close(); return {"ok": True}
+
+@app.get("/api/signatures/{sig_id}/data")
+def get_signature_data_kk(sig_id: int, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    row = db.execute("SELECT signature_data FROM doc_signatures WHERE id=? AND office_id=?", (sig_id, oid)).fetchone()
+    db.close()
+    if not row: raise HTTPException(status_code=404, detail="Not found")
+    return {"signature_data": row["signature_data"]}
+
+@app.delete("/api/signatures/{sig_id}")
+def delete_signature_kk(sig_id: int, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    db.execute("DELETE FROM doc_signatures WHERE id=? AND office_id=?", (sig_id, oid))
+    db.commit(); db.close(); return {"ok": True}
+
 @app.get("/{path:path}")
 def catch_all(path: str):
     with open("static/index.html", encoding="utf-8") as f:

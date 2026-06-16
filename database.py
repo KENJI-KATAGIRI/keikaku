@@ -221,6 +221,42 @@ def init_db():
         FOREIGN KEY (office_id) REFERENCES offices(id)
     );
 
+    CREATE TABLE IF NOT EXISTS hospitalization_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        office_id INTEGER NOT NULL,
+        client_id INTEGER NOT NULL,
+        hospital_name TEXT DEFAULT '',
+        admission_date TEXT NOT NULL,
+        notification_received_date TEXT DEFAULT '',
+        info_provided_date TEXT DEFAULT '',
+        info_provided_method TEXT DEFAULT '',
+        info_provided_content TEXT DEFAULT '',
+        conference1_date TEXT DEFAULT '',
+        conference2_date TEXT DEFAULT '',
+        conference3_date TEXT DEFAULT '',
+        discharge_date TEXT DEFAULT '',
+        discharge_conference_date TEXT DEFAULT '',
+        status TEXT DEFAULT 'admitted',
+        notes TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now','localtime')),
+        FOREIGN KEY (office_id) REFERENCES offices(id),
+        FOREIGN KEY (client_id) REFERENCES clients(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS doc_signatures (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        office_id INTEGER NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id INTEGER NOT NULL,
+        doc_type TEXT NOT NULL,
+        signer_name TEXT DEFAULT '',
+        signed_at TEXT NOT NULL,
+        signature_data TEXT NOT NULL,
+        notes TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now','localtime')),
+        FOREIGN KEY (office_id) REFERENCES offices(id)
+    );
+
     """)
     conn.commit()
     conn.close()
