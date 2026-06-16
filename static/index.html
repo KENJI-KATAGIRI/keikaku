@@ -22,57 +22,59 @@ body { font-family: "Noto Sans JP", sans-serif; }
 </head>
 <body class="bg-gray-100">
 
-<div id="login-page" class="min-h-screen bg-gradient-to-br from-purple-900 to-purple-600 flex items-center justify-center p-4">
-  <div class="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md">
-    <div class="text-center mb-8">
-      <div class="mb-3">
+<div id="login-page" style="min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,#0f0a1e,#1e1040)">
+  <div style="background:#1a1030;border-radius:20px;padding:40px;width:380px;border:1px solid #4c1d95;box-shadow:0 0 40px rgba(124,58,237,0.15)">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="margin-bottom:12px">
         <img src="/keikaku/static/owl_logo_full.png" alt="OWL" style="height:48px;width:auto;display:inline-block">
       </div>
-      <h1 class="text-2xl font-bold text-purple-700" style="letter-spacing:-0.5px">OWL計画相談支援Manager</h1>
-      <p class="text-gray-500 mt-1 text-sm">サービス等利用計画・モニタリング管理</p>
+      <h1 style="font-size:20px;font-weight:800;color:#a78bfa;letter-spacing:-0.5px">OWL計画相談支援Manager</h1>
+      <p style="font-size:12px;color:#6b7280;margin-top:4px">サービス等利用計画・モニタリング管理</p>
     </div>
+    <!-- ログインフォーム -->
     <div id="login-form">
-      <div class="mb-4">
-        <label class="block text-sm font-medium text-gray-700 mb-1">ユーザーID</label>
-        <input id="login-username" type="text" class="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="ユーザーID" onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()">
-      </div>
-      <div class="mb-6">
-        <label class="block text-sm font-medium text-gray-700 mb-1">パスワード</label>
-        <input id="login-password" type="password" class="w-full border rounded-lg px-4 py-2 focus:ring-2 focus:ring-purple-500 focus:border-transparent" placeholder="パスワード" onkeydown="if(event.key==='Enter')doLogin()">
-      </div>
-      <button type="button" onclick="doLogin()" class="w-full bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition">ログイン</button>
-      <p id="login-error" class="text-red-500 text-sm mt-3 text-center hidden"></p>
-      <div class="mt-4 text-center">
-        <span class="text-gray-500 text-sm">アカウントをお持ちでない方は </span>
-        <button onclick="showRegister()" class="text-purple-600 text-sm underline">新規登録</button>
+      <input id="login-username" type="text" placeholder="ユーザーID"
+        style="width:100%;background:#0d0821;border:1px solid #4c1d95;color:#e2e8f0;border-radius:8px;padding:10px 12px;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:10px"
+        onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#4c1d95'"
+        onkeydown="if(event.key==='Enter')document.getElementById('login-password').focus()">
+      <input id="login-password" type="password" placeholder="パスワード"
+        style="width:100%;background:#0d0821;border:1px solid #4c1d95;color:#e2e8f0;border-radius:8px;padding:10px 12px;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:16px"
+        onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#4c1d95'"
+        onkeydown="if(event.key==='Enter')doLogin()">
+      <button type="button" onclick="doLogin()"
+        style="width:100%;background:#7c3aed;color:#fff;padding:12px;border-radius:8px;border:none;cursor:pointer;font-size:14px;font-weight:600;transition:.2s"
+        onmouseover="this.style.background='#6d28d9'" onmouseout="this.style.background='#7c3aed'">ログイン</button>
+      <p id="login-error" style="color:#f87171;font-size:13px;text-align:center;margin-top:10px;display:none"></p>
+      <div style="margin-top:16px;text-align:center">
+        <span style="color:#6b7280;font-size:13px">アカウントをお持ちでない方は </span>
+        <button type="button" onclick="showRegister()" style="color:#a78bfa;font-size:13px;background:none;border:none;cursor:pointer;text-decoration:underline">新規登録</button>
       </div>
     </div>
-    <div id="register-form" class="hidden">
-      <div class="mb-3">
-        <label class="block text-sm font-medium text-gray-700 mb-1">事業所名</label>
-        <input id="reg-office" type="text" class="w-full border rounded-lg px-4 py-2" placeholder="○○相談支援事業所">
-      </div>
-      <div class="mb-3">
-        <label class="block text-sm font-medium text-gray-700 mb-1">ユーザーID</label>
-        <input id="reg-username" type="text" class="w-full border rounded-lg px-4 py-2" placeholder="英数字">
-      </div>
-      <div class="mb-3">
-        <label class="block text-sm font-medium text-gray-700 mb-1">メールアドレス</label>
-        <input id="reg-email" type="email" class="w-full border rounded-lg px-4 py-2" placeholder="email@example.com">
-      </div>
-      <div class="mb-6">
-        <label class="block text-sm font-medium text-gray-700 mb-1">パスワード</label>
-        <input id="reg-password" type="password" class="w-full border rounded-lg px-4 py-2" placeholder="8文字以上">
-      </div>
-      <button onclick="doRegister()" class="w-full bg-purple-600 text-white py-3 rounded-lg font-medium hover:bg-purple-700 transition">登録して開始</button>
-      <div class="mt-4 text-center">
-        <button onclick="showLogin()" class="text-purple-600 text-sm underline">ログインに戻る</button>
+    <!-- 新規登録フォーム -->
+    <div id="register-form" style="display:none">
+      <input id="reg-office" type="text" placeholder="事業所名"
+        style="width:100%;background:#0d0821;border:1px solid #4c1d95;color:#e2e8f0;border-radius:8px;padding:10px 12px;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:10px"
+        onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#4c1d95'">
+      <input id="reg-username" type="text" placeholder="ユーザーID"
+        style="width:100%;background:#0d0821;border:1px solid #4c1d95;color:#e2e8f0;border-radius:8px;padding:10px 12px;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:10px"
+        onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#4c1d95'">
+      <input id="reg-email" type="email" placeholder="メールアドレス"
+        style="width:100%;background:#0d0821;border:1px solid #4c1d95;color:#e2e8f0;border-radius:8px;padding:10px 12px;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:10px"
+        onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#4c1d95'">
+      <input id="reg-password" type="password" placeholder="パスワード（8文字以上）"
+        style="width:100%;background:#0d0821;border:1px solid #4c1d95;color:#e2e8f0;border-radius:8px;padding:10px 12px;font-size:14px;outline:none;box-sizing:border-box;margin-bottom:16px"
+        onfocus="this.style.borderColor='#7c3aed'" onblur="this.style.borderColor='#4c1d95'">
+      <button type="button" onclick="doRegister()"
+        style="width:100%;background:#7c3aed;color:#fff;padding:12px;border-radius:8px;border:none;cursor:pointer;font-size:14px;font-weight:600;transition:.2s"
+        onmouseover="this.style.background='#6d28d9'" onmouseout="this.style.background='#7c3aed'">登録して開始</button>
+      <div style="margin-top:12px;text-align:center">
+        <button type="button" onclick="showLogin()" style="color:#a78bfa;font-size:13px;background:none;border:none;cursor:pointer;text-decoration:underline">ログインに戻る</button>
       </div>
     </div>
   </div>
 </div>
 
-<div id="app" class="hidden flex flex-col md:flex-row min-h-screen">
+<div id="app" class="flex flex-col md:flex-row min-h-screen" style="display:none">
   <div class="sidebar bg-purple-900 text-white flex-shrink-0">
     <div class="p-4 border-b border-purple-700">
       <div style="display:flex;align-items:center;gap:8px"><img src="/keikaku/static/owl_logo.png" style="height:22px;width:auto" alt="OWL"><span class="font-bold text-base">OWL計画相談支援</span></div>
@@ -595,54 +597,71 @@ function api(path, method="GET", body=null) {
 }
 
 function showLogin() {
-  document.getElementById("login-form").classList.remove("hidden");
-  document.getElementById("register-form").classList.add("hidden");
+  document.getElementById("login-form").style.display = "block";
+  document.getElementById("register-form").style.display = "none";
+  document.getElementById("login-error").style.display = "none";
 }
 
 function showRegister() {
-  document.getElementById("login-form").classList.add("hidden");
-  document.getElementById("register-form").classList.remove("hidden");
+  document.getElementById("login-form").style.display = "none";
+  document.getElementById("register-form").style.display = "block";
 }
 
 async function doLogin() {
   const u = document.getElementById("login-username").value;
   const p = document.getElementById("login-password").value;
+  const errEl = document.getElementById("login-error");
+  errEl.style.display = "none";
   try {
-    const d = await api("/api/login", "POST", {username:u, password:p});
+    const res = await fetch(BASE + "/api/login", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({username: u, password: p})
+    });
+    if (!res.ok) { errEl.textContent = "IDまたはパスワードが違います"; errEl.style.display = "block"; return; }
+    const d = await res.json();
     token = d.token; officeName = d.office_name;
     localStorage.setItem("keikaku_token", token);
     localStorage.setItem("keikaku_office", officeName);
     showApp();
   } catch(e) {
-    const el = document.getElementById("login-error");
-    el.textContent = "ログインに失敗しました"; el.classList.remove("hidden");
+    errEl.textContent = "通信エラーが発生しました"; errEl.style.display = "block";
   }
 }
 
 async function doRegister() {
-  const d = await api("/api/register", "POST", {
-    username: document.getElementById("reg-username").value,
-    office_name: document.getElementById("reg-office").value,
-    email: document.getElementById("reg-email").value,
-    password: document.getElementById("reg-password").value
-  });
-  token = d.token; officeName = d.office_name;
-  localStorage.setItem("keikaku_token", token);
-  localStorage.setItem("keikaku_office", officeName);
-  showApp();
+  try {
+    const res = await fetch(BASE + "/api/register", {
+      method: "POST",
+      headers: {"Content-Type":"application/json"},
+      body: JSON.stringify({
+        username: document.getElementById("reg-username").value,
+        office_name: document.getElementById("reg-office").value,
+        email: document.getElementById("reg-email").value,
+        password: document.getElementById("reg-password").value
+      })
+    });
+    if (!res.ok) { alert("登録に失敗しました"); return; }
+    const d = await res.json();
+    token = d.token; officeName = d.office_name;
+    localStorage.setItem("keikaku_token", token);
+    localStorage.setItem("keikaku_office", officeName);
+    showApp();
+  } catch(e) { alert("通信エラー: " + e.message); }
 }
 
 function doLogout() {
   token = ""; officeName = "";
   localStorage.removeItem("keikaku_token");
   localStorage.removeItem("keikaku_office");
-  document.getElementById("app").classList.add("hidden");
-  document.getElementById("login-page").classList.remove("hidden");
+  document.getElementById("app").style.display = "none";
+  document.getElementById("login-page").style.display = "flex";
+  showLogin();
 }
 
 function showApp() {
-  document.getElementById("login-page").classList.add("hidden");
-  document.getElementById("app").classList.remove("hidden");
+  document.getElementById("login-page").style.display = "none";
+  document.getElementById("app").style.display = "flex";
   document.getElementById("office-name").textContent = officeName;
   loadCounselors();
   loadClients();
@@ -716,7 +735,7 @@ async function saveHandover(){await api("/api/handovers","POST",{staff_name:docu
 async function markRead(id){await api("/api/handovers/"+id+"/read","PATCH");loadHandovers();}
 async function loadSettings(){const d=await api("/api/me").catch(e=>null);const el=document.getElementById("settings-info");if(!el)return;if(!d){el.innerHTML="<p>読込失敗</p>";return;}el.innerHTML="<dl class=space-y-3><dt class=font-medium text-gray-700>事業所名</dt><dd>"+d.office_name+"</dd><dt class=font-medium text-gray-700>ユーザーID</dt><dd>"+d.username+"</dd><dt class=font-medium text-gray-700>メール</dt><dd>"+d.email+"</dd><dt class=font-medium text-gray-700>プラン</dt><dd>"+d.plan+"</dd><dt class=font-medium text-gray-700>ステータス</dt><dd>"+d.subscription_status+"</dd><dt class=font-medium text-gray-700>トライアル期限</dt><dd>"+( d.trial_end||"N/A")+"</dd></dl>";}
 
-if(token){showApp();}
+if(token){showApp();}else{document.getElementById("login-page").style.display="flex";document.getElementById("app").style.display="none";}
 
 // ===== Keikaku BCP・虐待防止・加算管理 =====
 const KEIKAKU_KASAN_LIST = [
