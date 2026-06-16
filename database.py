@@ -257,6 +257,28 @@ def init_db():
         FOREIGN KEY (office_id) REFERENCES offices(id)
     );
 
+    CREATE TABLE IF NOT EXISTS billing_records (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        office_id INTEGER NOT NULL,
+        billing_year INTEGER NOT NULL,
+        billing_month INTEGER NOT NULL,
+        client_id INTEGER NOT NULL,
+        service_type TEXT DEFAULT '',
+        plan_count INTEGER DEFAULT 0,
+        monitoring_count INTEGER DEFAULT 0,
+        conference_count INTEGER DEFAULT 0,
+        base_units INTEGER DEFAULT 0,
+        kasan_units INTEGER DEFAULT 0,
+        total_units INTEGER DEFAULT 0,
+        unit_price REAL DEFAULT 10.00,
+        total_yen INTEGER DEFAULT 0,
+        user_burden INTEGER DEFAULT 0,
+        subsidy_yen INTEGER DEFAULT 0,
+        status TEXT DEFAULT 'draft',
+        notes TEXT DEFAULT '',
+        created_at TEXT DEFAULT (datetime('now','localtime')),
+        UNIQUE(office_id, billing_year, billing_month, client_id)
+    );
     """)
     conn.commit()
     conn.close()

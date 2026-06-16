@@ -1102,6 +1102,195 @@ def delete_signature_kk(sig_id: int, request: Request):
     db.execute("DELETE FROM doc_signatures WHERE id=? AND office_id=?", (sig_id, oid))
     db.commit(); db.close(); return {"ok": True}
 
+
+
+# ===== 国保連請求機能（計画相談支援） =====
+# 令和6年 計画相談支援 単位数
+KEIKAKU_BASE_UNITS = {
+    "service_plan": 1629,       # サービス利用支援費
+    "monitoring": 1357,         # 継続サービス利用支援費
+}
+KEIKAKU_KASAN_UNITS = {
+    "初回加算": 300,
+    "複数サービス利用加算": 300,
+    "入院時情報連携加算(Ⅰ)": 200,
+    "入院時情報連携加算(Ⅱ)": 100,
+    "退院・退所加算": 200,
+    "集中支援加算": 2000,
+}
+
+class BillingCalcReqKk(BaseModel):
+    year: int
+    month: int
+    unit_price: Optional[float] = 10.00
+
+@app.get("/api/billing/calculate")
+def calc_billing_kk(request: Request, year: int, month: int, unit_price: float = 10.00):
+    oid = current_office(request)
+    db = get_db(); check_active(oid, db)
+    month_str = f"{year}-{month:02d}"
+    clients = db.execute(
+        "SELECT * FROM clients WHERE office_id=? AND is_active=1", (oid,)).fetchall()
+    active_kasan = db.execute(
+        "SELECT kasan_name FROM kasan_records WHERE office_id=? AND is_active=1", (oid,)).fetchall()
+    active_kasan_names = {r["kasan_name"] for r in active_kasan}
+    results = []
+    for c in clients:
+        # Count service plans created this month
+        plan_count = db.execute(
+            "SELECT COUNT(*) FROM service_plans WHERE office_id=? AND client_id=? AND created_at LIKE ?",
+            (oid, c["id"], month_str + "%")).fetchone()[0]
+        # Count monitoring reports this month
+        monitoring_count = db.execute(
+            "SELECT COUNT(*) FROM monitoring_reports WHERE office_id=? AND client_id=? AND created_at LIKE ?",
+            (oid, c["id"], month_str + "%")).fetchone()[0]
+        # Count conferences this month
+        conf_count = db.execute(
+            "SELECT COUNT(*) FROM case_conferences WHERE office_id=? AND client_id=? AND conference_date LIKE ?",
+            (oid, c["id"], month_str + "%")).fetchone()[0]
+        if plan_count == 0 and monitoring_count == 0:
+            continue
+        # Base units
+        base_units = plan_count * 1629 + monitoring_count * 1357
+        kasan_units = 0; kasan_detail = []
+        if "初回加算" in active_kasan_names and plan_count > 0:
+            kasan_units += 300; kasan_detail.append("初回加算:300")
+        if "複数サービス利用加算" in active_kasan_names and plan_count > 0:
+            kasan_units += 300; kasan_detail.append("複数サービス:300")
+        # Hospitalization kasan this month
+        hosp_i = db.execute(
+            """SELECT COUNT(*) FROM hospitalization_records
+               WHERE office_id=? AND client_id=? AND info_provided_date LIKE ?
+               AND info_provided_method IN ('対面','ICT')""",
+            (oid, c["id"], month_str + "%")).fetchone()[0]
+        hosp_ii = db.execute(
+            """SELECT COUNT(*) FROM hospitalization_records
+               WHERE office_id=? AND client_id=? AND info_provided_date LIKE ?
+               AND info_provided_method NOT IN ('対面','ICT')""",
+            (oid, c["id"], month_str + "%")).fetchone()[0]
+        if hosp_i > 0: kasan_units += 200 * hosp_i; kasan_detail.append(f"入院情報連携(Ⅰ):{200*hosp_i}")
+        if hosp_ii > 0: kasan_units += 100 * hosp_ii; kasan_detail.append(f"入院情報連携(Ⅱ):{100*hosp_ii}")
+        # Discharge kasan
+        disc = db.execute(
+            """SELECT SUM(
+               (CASE WHEN conference1_date LIKE ? THEN 1 ELSE 0 END) +
+               (CASE WHEN conference2_date LIKE ? THEN 1 ELSE 0 END) +
+               (CASE WHEN conference3_date LIKE ? THEN 1 ELSE 0 END)
+               ) FROM hospitalization_records WHERE office_id=? AND client_id=?""",
+            (month_str+"%", month_str+"%", month_str+"%", oid, c["id"])).fetchone()[0] or 0
+        if disc > 0: kasan_units += min(disc, 3) * 200; kasan_detail.append(f"退院退所加算:{min(disc,3)*200}")
+        total_units = base_units + kasan_units
+        total_yen = int(total_units * unit_price)
+        user_burden = int(total_yen * 0.1)
+        subsidy_yen = total_yen - user_burden
+        service_type = "サービス利用支援" if plan_count > 0 else "継続サービス利用支援"
+        results.append({
+            "client_id": c["id"],
+            "client_name": c["name"],
+            "jukyusha_no": c["jukyusha_no"] or "",
+            "disability_type": c["disability_type"] or "",
+            "service_type": service_type,
+            "plan_count": plan_count,
+            "monitoring_count": monitoring_count,
+            "conference_count": conf_count,
+            "base_units": base_units,
+            "kasan_units": kasan_units,
+            "kasan_detail": ", ".join(kasan_detail),
+            "total_units": total_units,
+            "unit_price": unit_price,
+            "total_yen": total_yen,
+            "user_burden": user_burden,
+            "subsidy_yen": subsidy_yen,
+        })
+    db.close()
+    return {
+        "year": year, "month": month, "unit_price": unit_price,
+        "client_count": len(results),
+        "total_subsidy": sum(r["subsidy_yen"] for r in results),
+        "total_burden": sum(r["user_burden"] for r in results),
+        "total_yen": sum(r["total_yen"] for r in results),
+        "items": results
+    }
+
+@app.post("/api/billing/save")
+def save_billing_kk(body: BillingCalcReqKk, request: Request):
+    oid = current_office(request)
+    db = get_db(); check_active(oid, db)
+    data = calc_billing_kk(request, body.year, body.month, body.unit_price)
+    for item in data["items"]:
+        db.execute("""INSERT OR REPLACE INTO billing_records
+            (office_id, billing_year, billing_month, client_id, service_type,
+             plan_count, monitoring_count, conference_count,
+             base_units, kasan_units, total_units, unit_price, total_yen, user_burden, subsidy_yen, status)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            (oid, body.year, body.month, item["client_id"], item["service_type"],
+             item["plan_count"], item["monitoring_count"], item["conference_count"],
+             item["base_units"], item["kasan_units"], item["total_units"],
+             item["unit_price"], item["total_yen"], item["user_burden"], item["subsidy_yen"], "confirmed"))
+    db.commit(); db.close()
+    return {"ok": True, "saved_count": len(data["items"])}
+
+@app.get("/api/billing/history")
+def billing_history_kk(request: Request):
+    oid = current_office(request)
+    db = get_db()
+    rows = db.execute("""SELECT billing_year, billing_month,
+        COUNT(DISTINCT client_id) as client_count,
+        SUM(total_units) as total_units, SUM(total_yen) as total_yen,
+        SUM(subsidy_yen) as total_subsidy, MAX(created_at) as created_at, status
+        FROM billing_records WHERE office_id=?
+        GROUP BY billing_year, billing_month, status
+        ORDER BY billing_year DESC, billing_month DESC""", (oid,)).fetchall()
+    db.close(); return [dict(r) for r in rows]
+
+@app.get("/api/billing/detail")
+def billing_detail_kk(request: Request, year: int, month: int):
+    oid = current_office(request)
+    db = get_db()
+    rows = db.execute("""SELECT br.*, c.name as client_name, c.jukyusha_no, c.disability_type
+        FROM billing_records br JOIN clients c ON c.id=br.client_id
+        WHERE br.office_id=? AND br.billing_year=? AND br.billing_month=?
+        ORDER BY c.kana""", (oid, year, month)).fetchall()
+    db.close(); return [dict(r) for r in rows]
+
+@app.get("/api/billing/csv")
+def billing_csv_kk(request: Request, year: int, month: int):
+    from fastapi.responses import StreamingResponse
+    import io, csv as csvlib
+    oid = current_office(request)
+    db = get_db()
+    office = db.execute("SELECT * FROM offices WHERE id=?", (oid,)).fetchone()
+    rows = db.execute("""SELECT br.*, c.name as client_name, c.jukyusha_no, c.disability_type
+        FROM billing_records br JOIN clients c ON c.id=br.client_id
+        WHERE br.office_id=? AND br.billing_year=? AND br.billing_month=?
+        ORDER BY c.kana""", (oid, year, month)).fetchall()
+    db.close()
+    buf = io.StringIO()
+    writer = csvlib.writer(buf)
+    writer.writerow(["請求年月", "事業所名", "受給者番号", "利用者名", "障害種別",
+                     "サービス種別", "計画作成回数", "モニタリング回数", "カンファレンス回数",
+                     "基本単位数", "加算単位数", "総単位数", "単価(円)", "総費用額(円)",
+                     "利用者負担額(円)", "給付費(円)"])
+    for r in rows:
+        writer.writerow([
+            f"{year}年{month}月",
+            office["name"] if office else "",
+            r["jukyusha_no"] or "",
+            r["client_name"],
+            r["disability_type"] or "",
+            r["service_type"] or "",
+            r["plan_count"], r["monitoring_count"], r["conference_count"],
+            r["base_units"], r["kasan_units"], r["total_units"],
+            r["unit_price"], r["total_yen"], r["user_burden"], r["subsidy_yen"],
+        ])
+    buf.seek(0)
+    content = "\ufeff" + buf.getvalue()
+    return StreamingResponse(
+        iter([content.encode("utf-8-sig")]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=keikaku_billing_{year}{month:02d}.csv"}
+    )
+
 @app.get("/{path:path}")
 def catch_all(path: str):
     with open("static/index.html", encoding="utf-8") as f:
