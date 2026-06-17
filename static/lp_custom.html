@@ -85,7 +85,7 @@ footer{background:#0f172a;color:#94a3b8;padding:36px 0;text-align:center;font-si
       <a href="#price" style="font-size:14px;font-weight:600;color:#475569;text-decoration:none">料金</a>
     </nav>
     <div style="display:flex;gap:8px">
-      <a href="https://gaiaarts.org/keikaku/auto-login/" class="btn btn-primary" style="padding:10px 16px;font-size:13px" target="_blank">📱 現場デモ</a>
+      <a href="#" onclick="startDemo();return false;" class="btn btn-primary" style="padding:10px 16px;font-size:13px">📱 デモを試す</a>
     </div>
   </div>
 </header>
@@ -105,7 +105,7 @@ footer{background:#0f172a;color:#94a3b8;padding:36px 0;text-align:center;font-si
         <p>モニタリング期限アラート・39件上限管理・ジェノグラム・サービス担当者会議記録まで、御社の業務フローに完全に合わせて構築。ソースコード納品・自社サーバー選択可で、長期にわたり安心して運用いただけます。<strong style="color:#c4b5fd">OEM展開（自社ブランドで他事業者へ）にも対応。</strong></p>
         <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">
           <a href="mailto:kenji.kys@gmail.com?subject=計画相談支援システム カスタム開発のご相談&body=法人名：%0D%0A事業所数・専門員数：%0D%0A現在の管理方法：%0D%0Aご要望：%0D%0Aご担当者名：%0D%0Aご連絡先：" class="btn btn-primary btn-lg">📧 無料ヒアリングを申し込む</a>
-          <a href="https://gaiaarts.org/keikaku/auto-login/" class="btn btn-lg" style="background:transparent;color:#fff;border:2px solid rgba(255,255,255,.6)" target="_blank">📱 動くデモを見る（ログイン不要）</a>
+          <a href="#" onclick="startDemo();return false;" class="btn btn-lg" style="background:transparent;color:#fff;border:2px solid rgba(255,255,255,.6)">📱 動くデモを見る</a>
         </div>
         <div style="font-size:12px;color:rgba(255,255,255,.8);margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px">
           <span>✓ 無料ヒアリングで御社要件に応じた概算をその場で提示</span>
@@ -574,7 +574,7 @@ footer{background:#0f172a;color:#94a3b8;padding:36px 0;text-align:center;font-si
       </div>
     </div>
     <div style="text-align:center">
-      <a href="https://gaiaarts.org/keikaku/auto-login/" style="display:inline-flex;align-items:center;gap:8px;background:#7c3aed;color:#fff;border:none;border-radius:12px;padding:14px 28px;font-size:15px;font-weight:700;text-decoration:none" target="_blank">🎥 デモでビデオ面談を体験する →</a>
+      <a href="#" onclick="startDemo();return false;" style="display:inline-flex;align-items:center;gap:8px;background:#7c3aed;color:#fff;border:none;border-radius:12px;padding:14px 28px;font-size:15px;font-weight:700;text-decoration:none">🎥 デモを体験する →</a>
     </div>
   </div>
 </section>
@@ -665,7 +665,7 @@ footer{background:#0f172a;color:#94a3b8;padding:36px 0;text-align:center;font-si
       <a href="mailto:kenji.kys@gmail.com?subject=計画相談支援システム カスタム開発のご相談&body=法人名：%0D%0A事業所数・専門員数：%0D%0A現在の管理方法：%0D%0Aご要望：%0D%0Aご担当者名：%0D%0Aご連絡先：" class="btn btn-lg" style="background:#fff;color:var(--g);font-weight:800;text-decoration:none">📧 無料ヒアリングを申し込む</a>
     </div>
     <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:20px">
-      <a href="https://gaiaarts.org/keikaku/auto-login/" style="display:inline-flex;align-items:center;gap:6px;padding:11px 22px;font-size:14px;font-weight:700;border-radius:12px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);text-decoration:none" target="_blank">📱 現場デモを見る</a>
+      <a href="#" onclick="startDemo();return false;" style="display:inline-flex;align-items:center;gap:6px;padding:11px 22px;font-size:14px;font-weight:700;border-radius:12px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);text-decoration:none">📱 デモを試す</a>
     </div>
     <div style="margin:0 auto 20px;max-width:600px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);border-radius:14px;padding:16px 20px;text-align:center">
       <div style="font-weight:800;font-size:14px;margin-bottom:8px">🤝 OEM・再販・士業提携のご相談</div>
@@ -687,5 +687,25 @@ footer{background:#0f172a;color:#94a3b8;padding:36px 0;text-align:center;font-si
   </div>
 </footer>
 <style>@media(max-width:640px){.scale-plans{grid-template-columns:1fr!important}}</style>
+
+<script>
+async function startDemo() {
+  const btn = event && event.target ? event.target : null;
+  if(btn){btn.style.opacity='0.6';btn.style.pointerEvents='none';}
+  const orig = btn ? btn.innerHTML : '';
+  try {
+    const res = await fetch('/keikaku/api/demo-login');
+    const data = await res.json();
+    if (data.token) {
+      localStorage.setItem('keikaku_token', data.token);
+      localStorage.setItem('keikaku_office', data.office_name || 'デモ事業所');
+      window.location.href = '/keikaku/';
+    } else { throw new Error(); }
+  } catch(e) {
+    if(btn){btn.style.opacity='1';btn.style.pointerEvents='auto';btn.innerHTML=orig;}
+    alert('デモの開始に失敗しました。しばらく後でお試しください。');
+  }
+}
+</script>
 </body>
 </html>

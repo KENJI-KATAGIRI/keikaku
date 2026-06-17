@@ -6,18 +6,36 @@
 <title>OWL計画相談支援Manager</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
-body { font-family: "Noto Sans JP", sans-serif; }
-.sidebar { width: 240px; min-height: 100vh; }
-@media (max-width: 768px) { .sidebar { width: 100%; min-height: auto; } }
-.card { transition: all 0.2s; }
-.card:hover { transform: translateY(-2px); box-shadow: 0 8px 25px rgba(0,0,0,0.15); }
-.alert-overdue { border-left: 4px solid #ef4444; }
-.alert-this-month { border-left: 4px solid #f97316; }
-.alert-next-month { border-left: 4px solid #eab308; }
-.alert-upcoming { border-left: 4px solid #3b82f6; }
-.tab-active { background: #7c3aed; color: white; }
-.modal { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; }
-.modal.show { display: flex; }
+:root{--g:#7c3aed;--gl:#ede9fe;--gd:#6d28d9;--amber:#d97706;--red:#dc2626}
+*{-webkit-tap-highlight-color:transparent;box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Yu Gothic UI',sans-serif;background:#faf5ff;min-height:100vh}
+.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:12px;font-weight:600;cursor:pointer;transition:all .15s;border:none;outline:none;min-height:44px;padding:0 16px;font-size:15px;gap:6px}
+.btn-primary{background:var(--g);color:#fff}.btn-primary:active{background:var(--gd)}
+.btn-secondary{background:#f1f5f9;color:#475569}.btn-secondary:active{background:#e2e8f0}
+.btn-outline{background:#fff;color:var(--g);border:2px solid var(--g)}
+.btn-amber{background:#fef3c7;color:var(--amber)}
+.btn-red{background:#fee2e2;color:var(--red)}
+.card{background:#fff;border-radius:16px;box-shadow:0 2px 8px rgba(0,0,0,.07);padding:16px;margin-bottom:12px}
+.tag{display:inline-flex;align-items:center;padding:2px 10px;border-radius:20px;font-size:12px;font-weight:600}
+.tag-g{background:var(--gl);color:var(--gd)}.tag-amber{background:#fef3c7;color:var(--amber)}
+.tag-red{background:#fee2e2;color:var(--red)}.tag-gray{background:#f3f4f6;color:#4b5563}
+input,select,textarea{width:100%;border:1.5px solid #d1d5db;border-radius:10px;padding:10px 12px;font-size:15px;outline:none;background:#fff;color:#111827;font-family:inherit}
+input[type=checkbox],input[type=radio]{width:auto;padding:0;border:none;border-radius:0;background:none}
+input:focus,select:focus,textarea:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(124,58,237,.15)}
+label{font-size:13px;font-weight:600;color:#374151;margin-bottom:4px;display:block}
+.bottom-nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid #e5e7eb;display:flex;z-index:100;padding-bottom:env(safe-area-inset-bottom)}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:8px 4px;cursor:pointer;color:#9ca3af;font-size:10px;font-weight:600;gap:2px}
+.nav-item.active{color:var(--g)}
+.nav-item svg{width:22px;height:22px}
+.page{display:none;padding:12px 12px 80px;max-width:600px;margin:0 auto}
+.page.active{display:block}
+.top-bar{background:#fff;border-bottom:1px solid #e5e7eb;padding:12px 16px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50}
+.section-title{font-size:18px;font-weight:700;color:#111827;margin-bottom:12px}
+.modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;align-items:center;justify-content:center}
+.modal.show{display:flex}
+.hidden{display:none!important}
+.spinner{border:3px solid #e5e7eb;border-top:3px solid var(--g);border-radius:50%;width:32px;height:32px;animation:spin .8s linear infinite;margin:24px auto}
+@keyframes spin{to{transform:rotate(360deg)}}
 </style>
 </head>
 <body class="bg-gray-100">
@@ -74,39 +92,21 @@ body { font-family: "Noto Sans JP", sans-serif; }
   </div>
 </div>
 
-<div id="app" class="flex flex-col md:flex-row min-h-screen" style="display:none">
-  <div class="sidebar bg-purple-900 text-white flex-shrink-0">
-    <div class="p-4 border-b border-purple-700">
-      <div style="display:flex;align-items:center;gap:8px"><img src="/keikaku/static/owl_logo.png" style="height:22px;width:auto" alt="OWL"><span class="font-bold text-base">OWL計画相談支援</span></div>
-      <p id="office-name" class="text-purple-300 text-sm"></p>
+<div id="app" style="display:none">
+  <div class="top-bar">
+    <div style="display:flex;align-items:center;gap:8px">
+      <img src="/keikaku/static/owl_logo.png" style="height:30px;width:auto;flex-shrink:0" alt="OWL">
+      <div>
+        <div style="font-weight:700;font-size:15px;color:#111827" id="topOfficeName">事業所名</div>
+        <div style="font-size:11px;color:#6b7280" id="topDate"></div>
+      </div>
     </div>
-    <nav class="p-2">
-      <button onclick="showPage('dashboard')" id="nav-dashboard" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">🏠 ダッシュボード</button>
-      <button onclick="showPage('monitoring')" id="nav-monitoring" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">⏰ モニタリング管理</button>
-      <button onclick="showPage('clients')" id="nav-clients" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">👥 担当ケース管理</button>
-      <button onclick="showPage('plans')" id="nav-plans" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">📋 サービス等利用計画</button>
-      <button onclick="showPage('monitoring-reports')" id="nav-monitoring-reports" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">📊 モニタリング報告書</button>
-      <button onclick="showPage('assessments')" id="nav-assessments" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">📝 アセスメント</button>
-      <button onclick="showPage('conferences')" id="nav-conferences" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">🤝 担当者会議記録</button>
-      <button onclick="showPage('consultations')" id="nav-consultations" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">📞 相談記録</button>
-      <button onclick="showPage('handovers')" id="nav-handovers" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">📌 申し送り</button>
-      <button onclick="showPage('counselors')" id="nav-counselors" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">👤 担当者管理</button>
-      <button onclick="showPage('settings')" id="nav-settings" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">⚙️ 設定</button>
-      <div class="border-t border-purple-700 my-2"></div>
-      <button onclick="showPage('bcp')" id="nav-bcp" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">🛡️ BCP・虐待防止</button>
-      <button onclick="showPage('kasan')" id="nav-kasan" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">💴 加算管理</button>
-      <button onclick="showPage('hospitalization')" id="nav-hospitalization" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">🏥 入退院管理</button>
-      <button onclick="showPage('signatures')" id="nav-signatures" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">✍️ 電子署名</button>
-      <button onclick="showPage('billing')" id="nav-billing" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">🧾 国保連請求</button>
-      <button onclick="showPage('genogram')" id="nav-genogram" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">🫂 ジェノグラム</button>
-      <button onclick="showPage('forms')" id="nav-forms" class="nav-btn w-full text-left px-3 py-2 rounded-lg mb-1 hover:bg-purple-700 transition">📄 帳票PDF出力</button>
-      <button onclick="doLogout()" class="w-full text-left px-3 py-2 rounded-lg mt-4 text-purple-300 hover:text-white hover:bg-purple-800 transition">🚪 ログアウト</button>
-    </nav>
+    <div style="display:flex;align-items:center;gap:8px">
+      <button onclick="doLogout()" style="color:#6b7280;font-size:12px;background:none;border:none;cursor:pointer">ログアウト</button>
+    </div>
   </div>
-  <div class="flex-1 overflow-auto">
-    <!-- Pages -->
     <!-- Dashboard -->
-    <div id="page-dashboard" class="page p-6">
+    <div id="page-dashboard" class="page active">
       <h2 class="text-2xl font-bold text-gray-800 mb-6">ダッシュボード</h2>
       <!-- Monitoring Cards -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -149,7 +149,7 @@ body { font-family: "Noto Sans JP", sans-serif; }
       </div>
     </div>
     <!-- Monitoring Alerts Page -->
-    <div id="page-monitoring" class="page p-6 hidden">
+    <div id="page-monitoring" class="page">
       <h2 class="text-2xl font-bold text-gray-800 mb-4">モニタリング管理</h2>
       <div class="flex gap-2 mb-4">
         <button onclick="switchMonTab('overdue')" id="mon-tab-overdue" class="px-4 py-2 rounded-lg tab-active">期限切れ</button>
@@ -160,7 +160,7 @@ body { font-family: "Noto Sans JP", sans-serif; }
       <div id="monitoring-list" class="space-y-2"></div>
     </div>
     <!-- Clients Page -->
-    <div id="page-clients" class="page p-6 hidden">
+    <div id="page-clients" class="page">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-2xl font-bold text-gray-800">担当ケース管理</h2>
         <button onclick="openClientModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">+ 新規登録</button>
@@ -175,7 +175,7 @@ body { font-family: "Noto Sans JP", sans-serif; }
       <div id="clients-list" class="overflow-x-auto"></div>
     </div>
     <!-- Service Plans Page -->
-    <div id="page-plans" class="page p-6 hidden">
+    <div id="page-plans" class="page">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-2xl font-bold text-gray-800">サービス等利用計画</h2>
         <button onclick="openPlanModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">+ 新規作成</button>
@@ -183,7 +183,7 @@ body { font-family: "Noto Sans JP", sans-serif; }
       <div id="plans-list" class="space-y-2"></div>
     </div>
     <!-- Monitoring Reports Page -->
-    <div id="page-monitoring-reports" class="page p-6 hidden">
+    <div id="page-monitoring-reports" class="page">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-2xl font-bold text-gray-800">モニタリング報告書</h2>
         <button onclick="openMonReportModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">+ 新規作成</button>
@@ -191,7 +191,7 @@ body { font-family: "Noto Sans JP", sans-serif; }
       <div id="monitoring-reports-list" class="space-y-2"></div>
     </div>
     <!-- Assessments Page -->
-    <div id="page-assessments" class="page p-6 hidden">
+    <div id="page-assessments" class="page">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-2xl font-bold text-gray-800">アセスメント</h2>
         <button onclick="openAssessModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">+ 新規作成</button>
@@ -199,7 +199,7 @@ body { font-family: "Noto Sans JP", sans-serif; }
       <div id="assessments-list" class="space-y-2"></div>
     </div>
     <!-- Case Conferences Page -->
-    <div id="page-conferences" class="page p-6 hidden">
+    <div id="page-conferences" class="page">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-2xl font-bold text-gray-800">担当者会議記録</h2>
         <button onclick="openConfModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">+ 新規作成</button>
@@ -207,7 +207,7 @@ body { font-family: "Noto Sans JP", sans-serif; }
       <div id="conferences-list" class="space-y-2"></div>
     </div>
     <!-- Consultation Records Page -->
-    <div id="page-consultations" class="page p-6 hidden">
+    <div id="page-consultations" class="page">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-2xl font-bold text-gray-800">相談記録</h2>
         <button onclick="openConsultModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">+ 新規記録</button>
@@ -215,7 +215,7 @@ body { font-family: "Noto Sans JP", sans-serif; }
       <div id="consultations-list" class="space-y-2"></div>
     </div>
     <!-- Handovers Page -->
-    <div id="page-handovers" class="page p-6 hidden">
+    <div id="page-handovers" class="page">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-2xl font-bold text-gray-800">申し送り</h2>
         <button onclick="openHandoverModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">+ 追加</button>
@@ -223,7 +223,7 @@ body { font-family: "Noto Sans JP", sans-serif; }
       <div id="handovers-list" class="space-y-2"></div>
     </div>
     <!-- Counselors Page -->
-    <div id="page-counselors" class="page p-6 hidden">
+    <div id="page-counselors" class="page">
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-2xl font-bold text-gray-800">担当者管理（相談支援専門員）</h2>
         <button onclick="openCounselorModal()" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700">+ 追加</button>
@@ -231,7 +231,7 @@ body { font-family: "Noto Sans JP", sans-serif; }
       <div id="counselors-list" class="space-y-2"></div>
     </div>
     <!-- Settings Page -->
-    <div id="page-bcp" class="page p-6 hidden">
+    <div id="page-bcp" class="page">
       <!-- Compliance Alerts -->
       <div id="kk-compliance-alerts" class="mb-4"></div>
       <!-- BCP Cards -->
@@ -364,7 +364,7 @@ body { font-family: "Noto Sans JP", sans-serif; }
       </div>
     </div>
 
-    <div id="page-kasan" class="page p-6 hidden">
+    <div id="page-kasan" class="page">
       <div id="kk-kasan-reduction-alert" class="mb-4"></div>
       <div class="bg-white rounded-xl shadow p-5">
         <h3 class="font-bold text-gray-900 mb-1">加算・届出管理</h3>
@@ -396,13 +396,52 @@ body { font-family: "Noto Sans JP", sans-serif; }
       </div>
     </div>
 
-    <div id="page-settings" class="page p-6 hidden">
+    <div id="page-settings" class="page">
       <h2 class="text-2xl font-bold text-gray-800 mb-4">設定</h2>
       <div id="settings-info" class="bg-white rounded-xl shadow p-6">
         <p class="text-gray-600">アカウント情報を読み込み中...</p>
       </div>
     </div>
+
+  <!-- メニュー -->
+  <div id="page-menu" class="page">
+    <div class="section-title">メニュー</div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+      <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('clients')"><div style="font-size:28px;margin-bottom:4px">👥</div><div style="font-weight:700;font-size:13px">担当ケース</div></button>
+      <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('plans')"><div style="font-size:28px;margin-bottom:4px">📋</div><div style="font-weight:700;font-size:13px">利用計画</div></button>
+      <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('monitoring-reports')"><div style="font-size:28px;margin-bottom:4px">📊</div><div style="font-weight:700;font-size:13px">モニタリング報告</div></button>
+      <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('assessments')"><div style="font-size:28px;margin-bottom:4px">📝</div><div style="font-weight:700;font-size:13px">アセスメント</div></button>
+      <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('conferences')"><div style="font-size:28px;margin-bottom:4px">🤝</div><div style="font-weight:700;font-size:13px">担当者会議</div></button>
+      <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('consultations')"><div style="font-size:28px;margin-bottom:4px">📞</div><div style="font-weight:700;font-size:13px">相談記録</div></button>
+      <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('counselors')"><div style="font-size:28px;margin-bottom:4px">👤</div><div style="font-weight:700;font-size:13px">担当者管理</div></button>
+      <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('bcp')"><div style="font-size:28px;margin-bottom:4px">🛡️</div><div style="font-weight:700;font-size:13px">BCP・虐待防止</div></button>
+      <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('kasan')"><div style="font-size:28px;margin-bottom:4px">💴</div><div style="font-weight:700;font-size:13px">加算管理</div></button>
+      <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('hospitalization')"><div style="font-size:28px;margin-bottom:4px">🏥</div><div style="font-weight:700;font-size:13px">入退院管理</div></button>
+      <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('signatures')"><div style="font-size:28px;margin-bottom:4px">✍️</div><div style="font-weight:700;font-size:13px">電子署名</div></button>
+      <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('billing')"><div style="font-size:28px;margin-bottom:4px">🧾</div><div style="font-weight:700;font-size:13px">国保連請求</div></button>
+      <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('genogram')"><div style="font-size:28px;margin-bottom:4px">🫂</div><div style="font-weight:700;font-size:13px">ジェノグラム</div></button>
+      <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('forms')"><div style="font-size:28px;margin-bottom:4px">📄</div><div style="font-weight:700;font-size:13px">帳票PDF出力</div></button>
+      <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('settings')"><div style="font-size:28px;margin-bottom:4px">⚙️</div><div style="font-weight:700;font-size:13px">設定</div></button>
+    </div>
   </div>
+
+  <nav class="bottom-nav">
+    <div class="nav-item active" onclick="showPage('dashboard')" id="nav-dashboard">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>ホーム
+    </div>
+    <div class="nav-item" onclick="showPage('monitoring')" id="nav-monitoring">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>モニタリング
+    </div>
+    <div class="nav-item" onclick="showPage('clients')" id="nav-clients">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>ケース
+    </div>
+    <div class="nav-item" onclick="showPage('handovers')" id="nav-handovers">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>申し送り
+    </div>
+    <div class="nav-item" onclick="showPage('menu')" id="nav-menu">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>メニュー
+    </div>
+  </nav>
 </div>
 
 <!-- Modals -->
@@ -661,8 +700,8 @@ function doLogout() {
 
 function showApp() {
   document.getElementById("login-page").style.display = "none";
-  document.getElementById("app").style.display = "flex";
-  document.getElementById("office-name").textContent = officeName;
+  document.getElementById("app").style.display = "block";
+  document.getElementById("topOfficeName").textContent = officeName;
   loadCounselors();
   loadClients();
   showPage("dashboard");
@@ -676,12 +715,17 @@ function showPage(page) {
   if (page === 'billing') loadKkBillingPage();
   if (page === 'genogram') loadGenogramPage();
   if (page === 'forms') loadKkFormsPage();
-  document.querySelectorAll(".page").forEach(p => p.classList.add("hidden"));
-  document.querySelectorAll(".nav-btn").forEach(b => b.classList.remove("bg-purple-700"));
+  document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+  document.querySelectorAll(".nav-item").forEach(b => b.classList.remove("active"));
   const el = document.getElementById("page-"+page);
-  const nb = document.getElementById("nav-"+page);
-  if (el) el.classList.remove("hidden");
-  if (nb) nb.classList.add("bg-purple-700");
+  if (el) el.classList.add("active");
+  const navEl = document.getElementById("nav-"+page);
+  if (navEl) navEl.classList.add("active");
+  else {
+    const menuPages = ['clients','plans','monitoring-reports','assessments','conferences','consultations','counselors','bcp','kasan','hospitalization','signatures','billing','genogram','forms','settings'];
+    if (menuPages.includes(page)) { const mn = document.getElementById("nav-menu"); if(mn) mn.classList.add("active"); }
+  }
+  window.scrollTo(0,0);
   if (page==="dashboard") loadDashboard();
   if (page==="monitoring") loadMonitoringAlerts();
   if (page==="clients") loadClients();
@@ -1157,7 +1201,7 @@ async function kkViewSignature(id) {
   const w = window.open('','_blank','width=650,height=300');
   w.document.write(`<html><body style="margin:0;background:#f5f5f5;display:flex;align-items:center;justify-content:center"><img src="${res.signature_data}" style="max-width:600px;border:1px solid #ccc;background:white">
   <!-- 国保連請求ページ（keikaku） -->
-  <div id="page-billing" class="page p-6 hidden">
+  <div id="page-billing" class="page">
     <div class="bg-white rounded-xl shadow p-4 mb-4">
       <h2 class="text-lg font-bold text-gray-800 mb-3">🧾 月次請求計算（計画相談支援給付費）</h2>
       <div class="flex flex-wrap gap-3 mb-4 items-end">
@@ -1217,7 +1261,7 @@ async function kkViewSignature(id) {
   </div>
 
   <!-- ジェノグラム・エコマップページ -->
-  <div id="page-genogram" class="page p-6 hidden">
+  <div id="page-genogram" class="page">
     <div class="bg-white rounded-xl shadow p-4 mb-4">
       <div class="flex items-center gap-4 mb-3">
         <h2 class="text-lg font-bold text-gray-800">🫂 ジェノグラム・エコマップ</h2>
@@ -1257,7 +1301,7 @@ async function kkViewSignature(id) {
   </div>
 
   <!-- 帳票PDF出力ページ（keikaku） -->
-  <div id="page-forms" class="page p-6 hidden">
+  <div id="page-forms" class="page">
     <div class="bg-white rounded-xl shadow p-4">
       <h2 class="text-lg font-bold text-gray-800 mb-4">📄 帳票生成・PDF出力</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1438,7 +1482,7 @@ async function showKkBillingDetail(year, month) {
       <td style="text-align:right">${fmt(data.reduce((s,r)=>s+(r.subsidy_yen||0),0))}</td>
     </tr></tfoot></table>
   <!-- ジェノグラム・エコマップページ -->
-  <div id="page-genogram" class="page p-6 hidden">
+  <div id="page-genogram" class="page">
     <div class="bg-white rounded-xl shadow p-4 mb-4">
       <div class="flex items-center gap-4 mb-3">
         <h2 class="text-lg font-bold text-gray-800">🫂 ジェノグラム・エコマップ</h2>
@@ -1478,7 +1522,7 @@ async function showKkBillingDetail(year, month) {
   </div>
 
   <!-- 帳票PDF出力ページ（keikaku） -->
-  <div id="page-forms" class="page p-6 hidden">
+  <div id="page-forms" class="page">
     <div class="bg-white rounded-xl shadow p-4">
       <h2 class="text-lg font-bold text-gray-800 mb-4">📄 帳票生成・PDF出力</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1849,7 +1893,7 @@ function kkDownloadBillingCsv(year, month) {
 </script>
 
   <!-- 入退院管理ページ -->
-  <div id="page-hospitalization" class="page p-6 hidden">
+  <div id="page-hospitalization" class="page">
     <div id="hosp-kasan-banner" class="mb-4"></div>
     <div class="bg-white rounded-xl shadow p-4 mb-4">
       <h2 class="text-lg font-bold text-gray-800 mb-3">🏥 入院情報 新規登録</h2>
@@ -1906,7 +1950,7 @@ function kkDownloadBillingCsv(year, month) {
   </div>
 
   <!-- 電子署名ページ（keikaku） -->
-  <div id="page-signatures" class="page p-6 hidden">
+  <div id="page-signatures" class="page">
     <div class="bg-white rounded-xl shadow p-4 mb-4">
       <h2 class="text-lg font-bold text-gray-800 mb-3">✍️ 電子署名 収集</h2>
       <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-3">
@@ -1942,7 +1986,7 @@ function kkDownloadBillingCsv(year, month) {
   </div>
 
   <!-- 国保連請求ページ（keikaku） -->
-  <div id="page-billing" class="page p-6 hidden">
+  <div id="page-billing" class="page">
     <div class="bg-white rounded-xl shadow p-4 mb-4">
       <h2 class="text-lg font-bold text-gray-800 mb-3">🧾 月次請求計算（計画相談支援給付費）</h2>
       <div class="flex flex-wrap gap-3 mb-4 items-end">
@@ -2002,7 +2046,7 @@ function kkDownloadBillingCsv(year, month) {
   </div>
 
   <!-- ジェノグラム・エコマップページ -->
-  <div id="page-genogram" class="page p-6 hidden">
+  <div id="page-genogram" class="page">
     <div class="bg-white rounded-xl shadow p-4 mb-4">
       <div class="flex items-center gap-4 mb-3">
         <h2 class="text-lg font-bold text-gray-800">🫂 ジェノグラム・エコマップ</h2>
@@ -2042,7 +2086,7 @@ function kkDownloadBillingCsv(year, month) {
   </div>
 
   <!-- 帳票PDF出力ページ（keikaku） -->
-  <div id="page-forms" class="page p-6 hidden">
+  <div id="page-forms" class="page">
     <div class="bg-white rounded-xl shadow p-4">
       <h2 class="text-lg font-bold text-gray-800 mb-4">📄 帳票生成・PDF出力</h2>
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">

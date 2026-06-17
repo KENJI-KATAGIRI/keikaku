@@ -375,8 +375,8 @@ async function startDemo() {
     const res = await fetch('/keikaku/api/demo-login');
     const data = await res.json();
     if (data.token) {
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('officeName', data.office_name || 'デモ事業所');
+      localStorage.setItem('keikaku_token', data.token);
+      localStorage.setItem('keikaku_office', data.office_name || 'デモ事業所');
       window.location.href = '/keikaku/';
     } else { throw new Error('no token'); }
   } catch(e) {
