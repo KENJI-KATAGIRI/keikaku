@@ -36,6 +36,7 @@ label{font-size:13px;font-weight:600;color:#374151;margin-bottom:4px;display:blo
 .hidden{display:none!important}
 .spinner{border:3px solid #e5e7eb;border-top:3px solid var(--g);border-radius:50%;width:32px;height:32px;animation:spin .8s linear infinite;margin:24px auto}
 @keyframes spin{to{transform:rotate(360deg)}}
+.tab-active{background:var(--g);color:#fff}
 </style>
 </head>
 <body class="bg-gray-100">
@@ -442,7 +443,6 @@ label{font-size:13px;font-weight:600;color:#374151;margin-bottom:4px;display:blo
       <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>メニュー
     </div>
   </nav>
-</div>
 
 <!-- Modals -->
 <div id="modal-client" class="modal items-center justify-center">
@@ -693,6 +693,7 @@ function doLogout() {
   token = ""; officeName = "";
   localStorage.removeItem("keikaku_token");
   localStorage.removeItem("keikaku_office");
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
   document.getElementById("app").style.display = "none";
   document.getElementById("login-page").style.display = "flex";
   showLogin();
@@ -702,6 +703,7 @@ function showApp() {
   document.getElementById("login-page").style.display = "none";
   document.getElementById("app").style.display = "block";
   document.getElementById("topOfficeName").textContent = officeName;
+  const _kdt=new Date(); const _kte=document.getElementById("topDate"); if(_kte) _kte.textContent=_kdt.toLocaleDateString("ja-JP",{year:"numeric",month:"long",day:"numeric"});
   loadCounselors();
   loadClients();
   showPage("dashboard");
@@ -1199,141 +1201,7 @@ async function kkViewSignature(id) {
   const res = await api('/api/signatures/'+id+'/data').catch(()=>null);
   if(!res) { alert('署名データを取得できませんでした'); return; }
   const w = window.open('','_blank','width=650,height=300');
-  w.document.write(`<html><body style="margin:0;background:#f5f5f5;display:flex;align-items:center;justify-content:center"><img src="${res.signature_data}" style="max-width:600px;border:1px solid #ccc;background:white">
-  <!-- 国保連請求ページ（keikaku） -->
-  <div id="page-billing" class="page">
-    <div class="bg-white rounded-xl shadow p-4 mb-4">
-      <h2 class="text-lg font-bold text-gray-800 mb-3">🧾 月次請求計算（計画相談支援給付費）</h2>
-      <div class="flex flex-wrap gap-3 mb-4 items-end">
-        <div><label class="text-xs text-gray-500">請求年月</label>
-          <div class="flex gap-2 mt-1">
-            <select id="kk-billing-year" class="border border-gray-200 rounded-lg px-3 py-2 text-sm"></select>
-            <select id="kk-billing-month" class="border border-gray-200 rounded-lg px-3 py-2 text-sm">
-              <option value="1">1月</option><option value="2">2月</option><option value="3">3月</option>
-              <option value="4">4月</option><option value="5">5月</option><option value="6">6月</option>
-              <option value="7">7月</option><option value="8">8月</option><option value="9">9月</option>
-              <option value="10">10月</option><option value="11">11月</option><option value="12">12月</option>
-            </select>
-          </div>
-        </div>
-        <div><label class="text-xs text-gray-500">地域単価</label>
-          <select id="kk-billing-unit-price" class="border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm">
-            <option value="11.21">特別区 11.21円</option>
-            <option value="10.88">特甲地 10.88円</option>
-            <option value="10.60">甲地 10.60円</option>
-            <option value="10.36">乙地 10.36円</option>
-            <option value="10.09">丙地 10.09円</option>
-            <option value="10.00" selected>その他 10.00円</option>
-          </select>
-        </div>
-        <button onclick="calcKkBilling()" class="bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700 transition text-sm self-end">▶ 試算</button>
-      </div>
-      <div id="kk-billing-calc-result" class="hidden">
-        <div id="kk-billing-result-cards" class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4"></div>
-        <div class="overflow-x-auto mb-3">
-          <table class="w-full border-collapse text-sm min-w-max">
-            <thead><tr class="bg-purple-100 text-purple-800">
-              <th class="px-3 py-2 text-left">利用者名</th>
-              <th class="px-3 py-2 text-center">受給者番号</th>
-              <th class="px-3 py-2 text-left">サービス種別</th>
-              <th class="px-3 py-2 text-center">計画作成</th>
-              <th class="px-3 py-2 text-center">モニタリング</th>
-              <th class="px-3 py-2 text-center">基本単位</th>
-              <th class="px-3 py-2 text-center">加算単位</th>
-              <th class="px-3 py-2 text-center">総単位数</th>
-              <th class="px-3 py-2 text-right">費用額</th>
-              <th class="px-3 py-2 text-right">利用者負担</th>
-              <th class="px-3 py-2 text-right">給付費</th>
-            </tr></thead>
-            <tbody id="kk-billing-calc-tbody"></tbody>
-            <tfoot id="kk-billing-calc-tfoot" class="bg-purple-100 text-purple-800 font-bold"></tfoot>
-          </table>
-        </div>
-        <div class="flex gap-3">
-          <button onclick="saveKkBilling()" class="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 transition text-sm">💾 請求確定・保存</button>
-        </div>
-      </div>
-    </div>
-    <div class="bg-white rounded-xl shadow p-4">
-      <h2 class="text-lg font-bold text-gray-800 mb-3">📋 請求履歴</h2>
-      <div id="kk-billing-history-list" class="text-sm text-gray-500">読み込み中...</div>
-    </div>
-  </div>
-
-  <!-- ジェノグラム・エコマップページ -->
-  <div id="page-genogram" class="page">
-    <div class="bg-white rounded-xl shadow p-4 mb-4">
-      <div class="flex items-center gap-4 mb-3">
-        <h2 class="text-lg font-bold text-gray-800">🫂 ジェノグラム・エコマップ</h2>
-        <select id="geno-client-sel" onchange="selectGenoClient()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1 max-w-xs">
-          <option value="">クライアントを選択</option>
-        </select>
-      </div>
-      <!-- Tabs -->
-      <div class="flex gap-2 mb-4 border-b border-gray-200">
-        <button id="tab-genogram" onclick="switchGenoTab('genogram')" class="px-4 py-2 text-sm font-medium border-b-2 border-purple-600 text-purple-600">ジェノグラム</button>
-        <button id="tab-ecomap" onclick="switchGenoTab('ecomap')" class="px-4 py-2 text-sm font-medium text-gray-500 hover:text-purple-600">エコマップ</button>
-      </div>
-      <!-- Genogram panel -->
-      <div id="panel-genogram">
-        <div class="flex gap-3 mb-3 flex-wrap">
-          <button onclick="addGenoMember()" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700">＋ 家族メンバー追加</button>
-          <button onclick="addGenoRelation()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">↔ 関係線追加</button>
-          <button onclick="printGenogram()" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-200">🖨️ 印刷</button>
-        </div>
-        <div id="genogram-container" class="border-2 border-gray-200 rounded-lg bg-gray-50 relative overflow-auto" style="min-height:400px">
-          <svg id="genogram-svg" width="800" height="400" class="w-full"></svg>
-        </div>
-        <div id="geno-member-list" class="mt-3 text-sm text-gray-500"></div>
-      </div>
-      <!-- Ecomap panel -->
-      <div id="panel-ecomap" class="hidden">
-        <div class="flex gap-3 mb-3">
-          <button onclick="addEcomapItem()" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700">＋ 資源を追加</button>
-          <button onclick="printEcomap()" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-200">🖨️ 印刷</button>
-        </div>
-        <div id="ecomap-container" class="border-2 border-gray-200 rounded-lg bg-gray-50" style="min-height:400px">
-          <svg id="ecomap-svg" width="800" height="400" class="w-full"></svg>
-        </div>
-        <div id="ecomap-item-list" class="mt-3 text-sm text-gray-500"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 帳票PDF出力ページ（keikaku） -->
-  <div id="page-forms" class="page">
-    <div class="bg-white rounded-xl shadow p-4">
-      <h2 class="text-lg font-bold text-gray-800 mb-4">📄 帳票生成・PDF出力</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <!-- サービス等利用計画書 -->
-        <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
-          <h4 class="font-bold text-purple-800 mb-2">📋 サービス等利用計画書</h4>
-          <p class="text-xs text-gray-500 mb-3">クライアントの計画書を様式に沿って印刷出力</p>
-          <div><label class="text-xs text-gray-500">クライアント選択</label>
-            <select id="form-client-plan" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
-          </div>
-          <div class="mt-2"><label class="text-xs text-gray-500">計画書を選択</label>
-            <select id="form-plan-sel" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
-          </div>
-          <button onclick="openServicePlanForm()" class="mt-3 bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700 transition text-sm">出力 →</button>
-        </div>
-        <!-- モニタリング報告書 -->
-        <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-          <h4 class="font-bold text-indigo-800 mb-2">📊 モニタリング報告書</h4>
-          <p class="text-xs text-gray-500 mb-3">モニタリング実績を様式に沿って印刷出力</p>
-          <div><label class="text-xs text-gray-500">クライアント選択</label>
-            <select id="form-client-mon" onchange="loadMonitoringList()" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
-          </div>
-          <div class="mt-2"><label class="text-xs text-gray-500">報告書を選択</label>
-            <select id="form-mon-sel" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
-          </div>
-          <button onclick="openMonitoringForm()" class="mt-3 bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700 transition text-sm">出力 →</button>
-        </div>
-      </div>
-      <p class="text-xs text-gray-400 mt-4">※ 出力後、ブラウザの印刷機能（Ctrl+P / Cmd+P）でPDFとして保存できます</p>
-    </div>
-  </div>
-</body></html>`);
+  w.document.write(`<html><body style="margin:0;background:#f5f5f5;display:flex;align-items:center;justify-content:center"><img src="${res.signature_data}" style="max-width:600px;border:1px solid #ccc;background:white"></body></html>`);
 }
 
 async function kkDeleteSignature(id) {
@@ -1480,81 +1348,7 @@ async function showKkBillingDetail(year, month) {
       <td style="text-align:right">${fmt(data.reduce((s,r)=>s+(r.total_yen||0),0))}</td>
       <td style="text-align:right">${fmt(data.reduce((s,r)=>s+(r.user_burden||0),0))}</td>
       <td style="text-align:right">${fmt(data.reduce((s,r)=>s+(r.subsidy_yen||0),0))}</td>
-    </tr></tfoot></table>
-  <!-- ジェノグラム・エコマップページ -->
-  <div id="page-genogram" class="page">
-    <div class="bg-white rounded-xl shadow p-4 mb-4">
-      <div class="flex items-center gap-4 mb-3">
-        <h2 class="text-lg font-bold text-gray-800">🫂 ジェノグラム・エコマップ</h2>
-        <select id="geno-client-sel" onchange="selectGenoClient()" class="border border-gray-200 rounded-lg px-3 py-2 text-sm flex-1 max-w-xs">
-          <option value="">クライアントを選択</option>
-        </select>
-      </div>
-      <!-- Tabs -->
-      <div class="flex gap-2 mb-4 border-b border-gray-200">
-        <button id="tab-genogram" onclick="switchGenoTab('genogram')" class="px-4 py-2 text-sm font-medium border-b-2 border-purple-600 text-purple-600">ジェノグラム</button>
-        <button id="tab-ecomap" onclick="switchGenoTab('ecomap')" class="px-4 py-2 text-sm font-medium text-gray-500 hover:text-purple-600">エコマップ</button>
-      </div>
-      <!-- Genogram panel -->
-      <div id="panel-genogram">
-        <div class="flex gap-3 mb-3 flex-wrap">
-          <button onclick="addGenoMember()" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700">＋ 家族メンバー追加</button>
-          <button onclick="addGenoRelation()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-indigo-700">↔ 関係線追加</button>
-          <button onclick="printGenogram()" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-200">🖨️ 印刷</button>
-        </div>
-        <div id="genogram-container" class="border-2 border-gray-200 rounded-lg bg-gray-50 relative overflow-auto" style="min-height:400px">
-          <svg id="genogram-svg" width="800" height="400" class="w-full"></svg>
-        </div>
-        <div id="geno-member-list" class="mt-3 text-sm text-gray-500"></div>
-      </div>
-      <!-- Ecomap panel -->
-      <div id="panel-ecomap" class="hidden">
-        <div class="flex gap-3 mb-3">
-          <button onclick="addEcomapItem()" class="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-purple-700">＋ 資源を追加</button>
-          <button onclick="printEcomap()" class="bg-gray-100 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-200">🖨️ 印刷</button>
-        </div>
-        <div id="ecomap-container" class="border-2 border-gray-200 rounded-lg bg-gray-50" style="min-height:400px">
-          <svg id="ecomap-svg" width="800" height="400" class="w-full"></svg>
-        </div>
-        <div id="ecomap-item-list" class="mt-3 text-sm text-gray-500"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- 帳票PDF出力ページ（keikaku） -->
-  <div id="page-forms" class="page">
-    <div class="bg-white rounded-xl shadow p-4">
-      <h2 class="text-lg font-bold text-gray-800 mb-4">📄 帳票生成・PDF出力</h2>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <!-- サービス等利用計画書 -->
-        <div class="bg-purple-50 border border-purple-200 rounded-lg p-4">
-          <h4 class="font-bold text-purple-800 mb-2">📋 サービス等利用計画書</h4>
-          <p class="text-xs text-gray-500 mb-3">クライアントの計画書を様式に沿って印刷出力</p>
-          <div><label class="text-xs text-gray-500">クライアント選択</label>
-            <select id="form-client-plan" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
-          </div>
-          <div class="mt-2"><label class="text-xs text-gray-500">計画書を選択</label>
-            <select id="form-plan-sel" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
-          </div>
-          <button onclick="openServicePlanForm()" class="mt-3 bg-purple-600 text-white px-5 py-2 rounded-lg hover:bg-purple-700 transition text-sm">出力 →</button>
-        </div>
-        <!-- モニタリング報告書 -->
-        <div class="bg-indigo-50 border border-indigo-200 rounded-lg p-4">
-          <h4 class="font-bold text-indigo-800 mb-2">📊 モニタリング報告書</h4>
-          <p class="text-xs text-gray-500 mb-3">モニタリング実績を様式に沿って印刷出力</p>
-          <div><label class="text-xs text-gray-500">クライアント選択</label>
-            <select id="form-client-mon" onchange="loadMonitoringList()" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
-          </div>
-          <div class="mt-2"><label class="text-xs text-gray-500">報告書を選択</label>
-            <select id="form-mon-sel" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></select>
-          </div>
-          <button onclick="openMonitoringForm()" class="mt-3 bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700 transition text-sm">出力 →</button>
-        </div>
-      </div>
-      <p class="text-xs text-gray-400 mt-4">※ 出力後、ブラウザの印刷機能（Ctrl+P / Cmd+P）でPDFとして保存できます</p>
-    </div>
-  </div>
-</body></html>`);
+    </tr></tfoot></table></body></html>`);
 }
 
 // ===== ジェノグラム・エコマップ =====
@@ -2118,5 +1912,6 @@ function kkDownloadBillingCsv(year, month) {
       <p class="text-xs text-gray-400 mt-4">※ 出力後、ブラウザの印刷機能（Ctrl+P / Cmd+P）でPDFとして保存できます</p>
     </div>
   </div>
+</div>
 </body>
 </html>
