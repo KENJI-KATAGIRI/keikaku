@@ -103,7 +103,7 @@ label{font-size:13px;font-weight:600;color:#374151;margin-bottom:4px;display:blo
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
-      <button onclick="doLogout()" style="color:#6b7280;font-size:12px;background:none;border:none;cursor:pointer">ログアウト</button>
+      <button onclick="openVcModal()" style="background:#7c3aed;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;font-weight:600;margin-right:6px">📹 通話</button><button onclick="doLogout()" style="color:#6b7280;font-size:12px;background:none;border:none;cursor:pointer">ログアウト</button>
     </div>
   </div>
     <!-- Dashboard -->
@@ -1201,7 +1201,87 @@ async function kkViewSignature(id) {
   const res = await api('/api/signatures/'+id+'/data').catch(()=>null);
   if(!res) { alert('署名データを取得できませんでした'); return; }
   const w = window.open('','_blank','width=650,height=300');
-  w.document.write(`<html><body style="margin:0;background:#f5f5f5;display:flex;align-items:center;justify-content:center"><img src="${res.signature_data}" style="max-width:600px;border:1px solid #ccc;background:white"></body></html>`);
+  w.document.write(`<html><body style="margin:0;background:#f5f5f5;display:flex;align-items:center;justify-content:center"><img src="${res.signature_data}" style="max-width:600px;border:1px solid #ccc;background:white">
+<!-- ビデオ通話モーダル -->
+<div id="vcModal" onclick="if(event.target===this)closeVcModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div style="font-size:16px;font-weight:700">📹 ビデオ通話</div>
+      <button onclick="closeVcModal()" style="color:#9ca3af;font-size:22px;line-height:1;background:none;border:none;cursor:pointer;padding:0">✕</button>
+    </div>
+    <input type="hidden" id="vcCurVal">
+    <input type="hidden" id="vcCustomRoom">
+    <div style="margin-bottom:14px">
+      <div style="font-size:12px;color:#6b7280;margin-bottom:8px;font-weight:500">📋 面談記録設定（任意）</div>
+      <select id="vcRecordType" style="width:100%;padding:9px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;background:#fff;margin-bottom:8px">
+        <option value="">記録タイプを選択...</option>
+        <option value="サービス担当者会議記録">サービス担当者会議記録</option>
+        <option value="モニタリング記録">モニタリング記録</option>
+        <option value="個別支援計画作成会議記録">個別支援計画作成会議記録</option>
+        <option value="家族面談記録">家族面談記録</option>
+        <option value="関係機関連絡調整">関係機関連絡調整</option>
+        <option value="スタッフ間ミーティング">スタッフ間ミーティング</option>
+      </select>
+      <input id="vcMemberName" placeholder="利用者名・相談者名（省略可）" maxlength="30"
+        style="width:100%;padding:9px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;box-sizing:border-box">
+    </div>
+    <div style="background:#f0f4ff;border-radius:10px;padding:14px;margin-bottom:16px">
+      <div style="font-size:11px;color:#6b7280;margin-bottom:6px">📎 相手に送るURL（コピーして共有）</div>
+      <div id="vcUrlText" style="font-size:13px;color:#2563eb;word-break:break-all;font-weight:500;line-height:1.5;min-height:20px"></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <button onclick="vcCopyUrl()" id="vcCopyBtn" style="padding:11px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;cursor:pointer;font-weight:500">📋 URLをコピー</button>
+      <button onclick="vcOpenUrl()" style="padding:11px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">📹 通話開始</button>
+    </div>
+    <div style="margin-top:10px">
+      <button onclick="vcOpenFaceRec()" style="width:100%;padding:11px;background:#065f46;color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">🎤 対面録音モード（文字起こし・AI記録）</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function openVcModal(){
+  document.getElementById('vcModal').style.display='flex';
+  if(!document.getElementById('vcCurVal').value){
+    var a=new Uint8Array(6);crypto.getRandomValues(a);
+    var roomId='keikaku-'+Array.from(a).map(function(b){return b.toString(16).padStart(2,'0');}).join('');
+    document.getElementById('vcCurVal').value='_custom_';
+    document.getElementById('vcCustomRoom').value=roomId;
+    vcUpdateUrl();
+  }
+}
+function closeVcModal(){
+  document.getElementById('vcModal').style.display='none';
+  document.getElementById('vcCurVal').value='';
+  document.getElementById('vcCustomRoom').value='';
+  document.getElementById('vcRecordType').value='';
+  document.getElementById('vcMemberName').value='';
+}
+function vcGetRoom(){var v=document.getElementById('vcCurVal').value;return(v.startsWith('_custom_')||v==='_vcgen_')?document.getElementById('vcCustomRoom').value.trim():v;}
+function vcMakeUrl(room,withName){var u='https://meet.gaiaarts.org/?room='+encodeURIComponent(room);if(withName&&officeName)u+='&name='+encodeURIComponent(officeName);return u;}
+function vcUpdateUrl(){var room=vcGetRoom();document.getElementById('vcUrlText').textContent=room?vcMakeUrl(room,false):'';}
+function vcCopyUrl(){var room=vcGetRoom();var url=room?vcMakeUrl(room,false):'';if(!url)return;navigator.clipboard.writeText(url).then(function(){var b=document.getElementById('vcCopyBtn');b.textContent='✅ コピーしました';setTimeout(function(){b.textContent='📋 URLをコピー';},2000);});}
+async function vcOpenUrl(){
+  var room=vcGetRoom();if(!room)return;
+  var recType=encodeURIComponent(document.getElementById('vcRecordType').value||'');
+  var memName=encodeURIComponent(document.getElementById('vcMemberName').value||'');
+  var extra=(recType?'&recordType='+recType:'')+(memName?'&memberName='+memName:'');
+  var r=await api('/nicemeet-sso-url?room='+encodeURIComponent(room)+(extra?'&'+extra.slice(1):''));
+  if(r&&r.url)window.open(r.url,'_blank');
+  else window.open(vcMakeUrl(room,true)+extra,'_blank');
+}
+async function openRecordsDashboard(){
+  var r=await api('/nicemeet-sso-url?dest=/booking/dashboard');
+  if(r&&r.url)window.open(r.url,'_blank');
+}
+async function vcOpenFaceRec(){
+  closeVcModal();
+  var r=await api('/nicemeet-sso-url');
+  if(r&&r.url)window.open(r.url,'_blank');
+  else window.open('https://meet.gaiaarts.org/record?system=keikaku','_blank');
+}
+</script>
+</body></html>`);
 }
 
 async function kkDeleteSignature(id) {

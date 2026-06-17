@@ -1,10 +1,10 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
-import sqlite3, hashlib, secrets, os, json
+import sqlite3, hashlib, secrets, os, time, hmac, base64, json
 from datetime import datetime, timedelta, date
 from jose import jwt
 try:
@@ -741,6 +741,35 @@ async def lp_page():
 @app.get("/lp_custom.html", response_class=HTMLResponse)
 async def lp_custom_page():
     with open("static/lp_custom.html", encoding="utf-8") as f: return f.read()
+
+
+@app.get("/api/nicemeet-sso-url")
+async def nicemeet_sso_url(
+    room: Optional[str] = None,
+    dest: Optional[str] = None,
+    recordType: Optional[str] = None,
+    memberName: Optional[str] = None,
+    oid: int = Depends(current_office)
+):
+    from urllib.parse import quote
+    db = get_db()
+    row = db.execute("SELECT office_name, email FROM offices WHERE id=?", (oid,)).fetchone()
+    db.close()
+    if not row: raise HTTPException(404)
+    payload = {"office_name": row["office_name"], "email": row["email"] or f"keikaku_{oid}@welfare.local", "system": "keikaku", "exp": int(time.time()) + 300}
+    import json as _json
+    payload_b64 = base64.urlsafe_b64encode(_json.dumps(payload, separators=(',', ':'), sort_keys=True).encode()).decode()
+    sig = hmac.new(WELFARE_SSO_SECRET.encode(), payload_b64.encode(), __import__('hashlib').sha256).hexdigest()
+    token = payload_b64 + "." + sig
+    if dest:
+        final_dest = dest
+    elif room:
+        extras = ("&recordType=" + quote(recordType) if recordType else "") + ("&memberName=" + quote(memberName) if memberName else "")
+        final_dest = f"/?room={room}&system=keikaku&name={quote(row['office_name'])}{extras}"
+    else:
+        final_dest = "/record?system=keikaku"
+    url = f"https://meet.gaiaarts.org/api/welfare-sso?token={quote(token)}&dest={quote(final_dest)}"
+    return {"url": url}
 
 @app.get("/api/demo-login")
 async def demo_login():
