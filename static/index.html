@@ -1936,16 +1936,20 @@ function kkDownloadBillingCsv(year, month) {
       <select id="crFilterType" onchange="loadCallRecords()" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;background:#fff">
         <option value="">全記録種別</option>
         <optgroup label="対面録音">
-          <option value="モニタリング記録">モニタリング記録</option>
-          <option value="個別支援計画作成会議記録">個別支援計画作成会議記録</option>
-          <option value="スタッフ情報共有">スタッフ情報共有</option>
-          <option value="見学・視察メモ">見学・視察メモ</option>
+          <option value="初回アセスメント面談">初回アセスメント面談</option>
+          <option value="サービス等利用計画作成のための面談">サービス等利用計画作成のための面談</option>
+          <option value="モニタリング（定期面談）">モニタリング（定期面談）</option>
+          <option value="サービス担当者会議（来所・訪問）">サービス担当者会議（来所・訪問）</option>
+          <option value="受給者証更新に向けた本人面談">受給者証更新に向けた本人面談</option>
+          <option value="本人宅訪問記録">本人宅訪問記録</option>
         </optgroup>
         <optgroup label="ビデオ通話">
-          <option value="サービス担当者会議記録">サービス担当者会議記録</option>
-          <option value="家族面談記録">家族面談記録</option>
-          <option value="関係機関連絡調整">関係機関連絡調整</option>
-          <option value="スタッフ間ミーティング">スタッフ間ミーティング</option>
+          <option value="サービス担当者会議（リモート）">サービス担当者会議（リモート）</option>
+          <option value="本人・家族との計画作成面談（リモート）">本人・家族との計画作成面談（リモート）</option>
+          <option value="サービス事業所との連絡調整（オンライン）">サービス事業所との連絡調整（オンライン）</option>
+          <option value="医療機関・行政との連携会議（オンライン）">医療機関・行政との連携会議（オンライン）</option>
+          <option value="モニタリング面談（リモート）">モニタリング面談（リモート）</option>
+          <option value="受給者証更新に向けた関係者会議（リモート）">受給者証更新に向けた関係者会議（リモート）</option>
         </optgroup>
       </select>
     </div>
@@ -2042,13 +2046,15 @@ function kkDownloadBillingCsv(year, month) {
     <div style="margin-bottom:14px">
       <div style="font-size:12px;color:#6b7280;margin-bottom:8px;font-weight:500">📋 面談記録設定（任意）</div>
       <select id="vcRecordType" style="width:100%;padding:9px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;background:#fff;margin-bottom:8px">
-        <option value="">記録タイプを選択...</option>
-        <option value="サービス担当者会議記録">サービス担当者会議記録</option>
-        <option value="モニタリング記録">モニタリング記録</option>
-        <option value="個別支援計画作成会議記録">個別支援計画作成会議記録</option>
-        <option value="家族面談記録">家族面談記録</option>
-        <option value="関係機関連絡調整">関係機関連絡調整</option>
-        <option value="スタッフ間ミーティング">スタッフ間ミーティング</option>
+        <option value="">記録種別を選択（任意）</option>
+        <optgroup label="📹 ビデオ通話">
+          <option value="サービス担当者会議（リモート）">サービス担当者会議（リモート）</option>
+          <option value="本人・家族との計画作成面談（リモート）">本人・家族との計画作成面談（リモート）</option>
+          <option value="サービス事業所との連絡調整（オンライン）">サービス事業所との連絡調整（オンライン）</option>
+          <option value="医療機関・行政との連携会議（オンライン）">医療機関・行政との連携会議（オンライン）</option>
+          <option value="モニタリング面談（リモート）">モニタリング面談（リモート）</option>
+          <option value="受給者証更新に向けた関係者会議（リモート）">受給者証更新に向けた関係者会議（リモート）</option>
+        </optgroup>
       </select>
       <input id="vcMemberName" placeholder="利用者名・相談者名（省略可）" maxlength="30"
         style="width:100%;padding:9px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;box-sizing:border-box">
