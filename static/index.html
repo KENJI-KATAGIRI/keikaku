@@ -2101,17 +2101,17 @@ async function vcOpenUrl(){
   var recType=encodeURIComponent(document.getElementById('vcRecordType').value||'');
   var memName=encodeURIComponent(document.getElementById('vcMemberName').value||'');
   var extra=(recType?'&recordType='+recType:'')+(memName?'&memberName='+memName:'');
-  var r=await api('/nicemeet-sso-url?room='+encodeURIComponent(room)+(extra?'&'+extra.slice(1):''));
+  var r=await api('/api/nicemeet-sso-url?room='+encodeURIComponent(room)+(extra?'&'+extra.slice(1):''));
   if(r&&r.url)window.open(r.url,'_blank');
   else window.open(vcMakeUrl(room,true)+extra,'_blank');
 }
 async function openRecordsDashboard(){
-  var r=await api('/nicemeet-sso-url?dest=/booking/dashboard');
+  var r=await api('/api/nicemeet-sso-url?dest=/booking/dashboard');
   if(r&&r.url)window.open(r.url,'_blank');
 }
 async function vcOpenFaceRec(){
   closeVcModal();
-  var r=await api('/nicemeet-sso-url');
+  var r=await api('/api/nicemeet-sso-url');
   if(r&&r.url)window.open(r.url,'_blank');
   else window.open('https://meet.gaiaarts.org/record?system=keikaku','_blank');
 }
@@ -2128,7 +2128,7 @@ async function loadCallRecords(){
   if(rtype) qs+='&record_type='+encodeURIComponent(rtype);
   const el=document.getElementById('crList'); if(!el) return;
   try{
-    const d=await api('/call-records'+(qs?'?'+qs.slice(1):''));
+    const d=await api('/api/call-records'+(qs?'?'+qs.slice(1):''));
     if(!d||!d.records||!d.records.length){el.innerHTML='<p style="font-size:13px;color:#9ca3af;text-align:center;padding:20px">まだ面談記録がありません</p>';return;}
     el.innerHTML=d.records.map(function(r){
       var dt=r.created_at?r.created_at.slice(0,10):'';
@@ -2165,7 +2165,7 @@ function toggleTranscript(){
 async function saveCrRecord(){
   if(!crCurrentId) return;
   const body={member_name:document.getElementById('crEditMember').value,record_type:document.getElementById('crEditType').value,summary_text:document.getElementById('crEditSummary').value,raw_transcript:document.getElementById('crEditTranscript').value};
-  const r=await api('/call-records/'+crCurrentId,{method:'PUT',body:JSON.stringify(body)});
+  const r=await api('/api/call-records/'+crCurrentId,'PUT',body);
   if(r&&r.ok){const msg=document.getElementById('crSaveMsg');msg.style.display='block';setTimeout(()=>{msg.style.display='none';closeCrModal();loadCallRecords();},1500);}
 }
 async function downloadCrCsv(){
@@ -2181,7 +2181,7 @@ async function submitInquiry(){
   var st=document.getElementById('inqStatus');
   st.style.display='block';st.style.background='#fef3c7';st.style.color='#92400e';st.textContent='送信中...';
   try{
-    var r=await api('/inquiry',{method:'POST',body:JSON.stringify(payload)});
+    var r=await api('/api/inquiry','POST',payload);
     if(r&&r.ok){
       st.style.background='#d1fae5';st.style.color='#065f46';st.textContent='送信しました。ありがとうございます。通常2〜3営業日以内にご返信いたします。';
       document.getElementById('inqTitle').value='';document.getElementById('inqBody').value='';document.getElementById('inqCategory').value='';
@@ -2195,7 +2195,7 @@ async function submitBugReport(){
   var st=document.getElementById('brStatus');
   st.style.display='block';st.style.background='#fef3c7';st.style.color='#92400e';st.textContent='送信中...';
   try{
-    var r=await api('/bug-report',{method:'POST',body:JSON.stringify(body)});
+    var r=await api('/api/bug-report','POST',body);
     if(r&&r.ok){
       st.style.background='#d1fae5';st.style.color='#065f46';st.textContent='送信しました。ご報告ありがとうございます。';
       document.getElementById('brTitle').value='';document.getElementById('brSteps').value='';document.getElementById('brExpected').value='';document.getElementById('brActual').value='';
