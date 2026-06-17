@@ -17,6 +17,7 @@ from database import get_db, init_db
 SECRET_KEY = "keikaku-manager-secret-2025"
 ALGORITHM  = "HS256"
 BASE_PATH  = "/keikaku"
+WELFARE_SSO_SECRET = os.environ.get("WELFARE_SSO_SECRET", "")
 
 app = FastAPI(root_path=BASE_PATH)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
@@ -742,6 +743,142 @@ async def lp_page():
 async def lp_custom_page():
     with open("static/lp_custom.html", encoding="utf-8") as f: return f.read()
 
+
+
+import smtplib
+from email.mime.text import MIMEText
+GMAIL_USER = os.environ.get("GMAIL_USER", "")
+GMAIL_PASS = os.environ.get("GMAIL_PASS", "")
+BUG_REPORT_TO = os.environ.get("BUG_REPORT_TO", "kenji.kys@gmail.com")
+
+def send_gmail(to: str, subject: str, body: str):
+    if not GMAIL_USER or not GMAIL_PASS:
+        return
+    import ssl
+    msg = MIMEText(body, "plain", "utf-8")
+    msg["From"] = f"計画相談支援Manager <{GMAIL_USER}>"
+    msg["To"] = to
+    msg["Subject"] = subject
+    ctx = ssl.create_default_context()
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx) as s:
+        s.login(GMAIL_USER, GMAIL_PASS)
+        s.send_message(msg)
+
+
+NM_DB_PATH = "/home/ubuntu/meet/data/booking.db"
+
+def get_nm_db():
+    import sqlite3 as _sq
+    db = _sq.connect(NM_DB_PATH)
+    db.row_factory = _sq.Row
+    return db
+
+def get_facility_id(office_email: str):
+    try:
+        db = get_nm_db()
+        row = db.execute("SELECT facility_id FROM users WHERE email=?", (office_email,)).fetchone()
+        db.close()
+        return row["facility_id"] if row and row["facility_id"] else None
+    except:
+        return None
+
+
+@app.get("/api/call-records")
+async def list_call_records(member: Optional[str]=None, record_type: Optional[str]=None, source: Optional[str]=None, oid: int=Depends(current_office)):
+    db=get_db(); row=db.execute("SELECT email FROM offices WHERE id=?",(oid,)).fetchone(); db.close()
+    if not row: raise HTTPException(404)
+    fid=get_facility_id(row["email"])
+    if not fid: return {"records":[]}
+    nm=get_nm_db(); sql="SELECT * FROM nm_call_records WHERE facility_id=?"; params=[fid]
+    if member: sql+=" AND member_name LIKE ?"; params.append(f"%{member}%")
+    if record_type: sql+=" AND record_type=?"; params.append(record_type)
+    if source: sql+=" AND source=?"; params.append(source)
+    sql+=" ORDER BY created_at DESC LIMIT 200"
+    rows=nm.execute(sql,params).fetchall(); nm.close()
+    return {"records":[dict(r) for r in rows]}
+
+@app.put("/api/call-records/{record_id}")
+async def update_call_record(record_id: int, req: Request, oid: int=Depends(current_office)):
+    body=await req.json(); db=get_db(); row=db.execute("SELECT email FROM offices WHERE id=?",(oid,)).fetchone(); db.close()
+    if not row: raise HTTPException(404)
+    fid=get_facility_id(row["email"])
+    if not fid: raise HTTPException(403)
+    nm=get_nm_db()
+    if not nm.execute("SELECT id FROM nm_call_records WHERE id=? AND facility_id=?",(record_id,fid)).fetchone():
+        nm.close(); raise HTTPException(404)
+    fields,params=[],[]
+    for k in ["summary_text","raw_transcript","member_name","record_type"]:
+        if k in body: fields.append(f"{k}=?"); params.append(body[k])
+    if not fields: nm.close(); raise HTTPException(400,"no fields")
+    params.append(record_id); nm.execute(f"UPDATE nm_call_records SET {', '.join(fields)} WHERE id=?",params); nm.commit(); nm.close()
+    return {"ok":True}
+
+@app.get("/api/call-records/csv")
+async def export_call_records_csv(oid: int=Depends(current_office)):
+    import io as _io
+    db=get_db(); row=db.execute("SELECT email,office_name FROM offices WHERE id=?",(oid,)).fetchone(); db.close()
+    if not row: raise HTTPException(404)
+    fid=get_facility_id(row["email"]); nm=get_nm_db()
+    rows=nm.execute("SELECT * FROM nm_call_records WHERE facility_id=? ORDER BY created_at DESC",(fid,)).fetchall() if fid else []; nm.close()
+    out=_io.StringIO(); out.write("\ufeff"); out.write("記録ID,記録種別,対象者,担当職員,面談日,作成日時,AI要約,文字起こし\n")
+    for r in rows:
+        def esc(v): return '"'+str(v or '').replace('"','""').replace('\n',' ')+'"'
+        out.write(f"{r['id']},{esc(r['record_type'])},{esc(r['member_name'])},{esc(r['staff_name'])},{r['interview_date'] or ''},{r['created_at'] or ''},{esc(r['summary_text'])},{esc(r['raw_transcript'])}\n")
+    out.seek(0)
+    from fastapi.responses import StreamingResponse
+    return StreamingResponse(out,media_type="text/csv; charset=utf-8-sig",headers={"Content-Disposition":f"attachment; filename=call_records_{oid}.csv"})
+
+
+class InquiryReq(BaseModel):
+    category: str = ""; title: str; body: str
+
+@app.post("/api/inquiry")
+async def inquiry(req: InquiryReq, oid: int=Depends(current_office)):
+    db=get_db(); row=db.execute("SELECT office_name,email FROM offices WHERE id=?",(oid,)).fetchone(); db.close()
+    office=row["office_name"] if row else f"office#{oid}"; office_email=row["email"] if row else ""
+    mail_body=f"""計画相談支援Managerお問い合わせ
+
+事業所: {office}
+返信先: {office_email}
+カテゴリ: {req.category or "未分類"}
+件名: {req.title}
+
+【内容】
+{req.body}
+"""
+    try:
+        send_gmail(BUG_REPORT_TO, f"【お問い合わせ】{req.title} - {office}", mail_body)
+        return {"ok":True}
+    except Exception as e:
+        raise HTTPException(500,str(e))
+
+class BugReportReq(BaseModel):
+    category: str=""; title: str; steps: str=""; expected: str=""; actual: str=""
+
+@app.post("/api/bug-report")
+async def bug_report(req: BugReportReq, oid: int=Depends(current_office)):
+    db=get_db(); row=db.execute("SELECT office_name,email FROM offices WHERE id=?",(oid,)).fetchone(); db.close()
+    office=row["office_name"] if row else f"office#{oid}"
+    body=f"""計画相談支援Managerバグ報告
+
+事業所: {office}
+カテゴリ: {req.category or "未分類"}
+件名: {req.title}
+
+【再現手順】
+{req.steps or "（未記入）"}
+
+【期待する動作】
+{req.expected or "（未記入）"}
+
+【実際の動作】
+{req.actual or "（未記入）"}
+"""
+    try:
+        send_gmail(BUG_REPORT_TO, f"【バグ報告】{req.title} - {office}", body)
+        return {"ok":True}
+    except Exception as e:
+        raise HTTPException(500,str(e))
 
 @app.get("/api/nicemeet-sso-url")
 async def nicemeet_sso_url(

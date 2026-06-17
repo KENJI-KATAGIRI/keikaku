@@ -103,7 +103,7 @@ label{font-size:13px;font-weight:600;color:#374151;margin-bottom:4px;display:blo
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
-      <button onclick="openVcModal()" style="background:#7c3aed;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;font-weight:600;margin-right:6px">📹 通話</button><button onclick="doLogout()" style="color:#6b7280;font-size:12px;background:none;border:none;cursor:pointer">ログアウト</button>
+      <button onclick="showPage("call-records")" style="background:#065f46;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;font-weight:600;margin-right:6px">🎤 面談</button><button onclick="openVcModal()" style="background:#7c3aed;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer;font-weight:600;margin-right:6px">📹 通話</button><button onclick="doLogout()" style="color:#6b7280;font-size:12px;background:none;border:none;cursor:pointer">ログアウト</button>
     </div>
   </div>
     <!-- Dashboard -->
@@ -423,6 +423,10 @@ label{font-size:13px;font-weight:600;color:#374151;margin-bottom:4px;display:blo
       <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('genogram')"><div style="font-size:28px;margin-bottom:4px">🫂</div><div style="font-weight:700;font-size:13px">ジェノグラム</div></button>
       <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('forms')"><div style="font-size:28px;margin-bottom:4px">📄</div><div style="font-weight:700;font-size:13px">帳票PDF出力</div></button>
       <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('settings')"><div style="font-size:28px;margin-bottom:4px">⚙️</div><div style="font-weight:700;font-size:13px">設定</div></button>
+    
+      <button class="card" style="text-align:center;cursor:pointer;border:2px solid #065f46;width:100%;padding:12px" onclick="showPage('call-records')"><div style="font-size:28px;margin-bottom:4px">🎤</div><div style="font-weight:700;font-size:13px;color:#065f46">面談記録</div></button>
+      <button class="card" style="text-align:center;cursor:pointer;border:2px solid #dc2626;width:100%;padding:12px" onclick="showPage('bug-report')"><div style="font-size:28px;margin-bottom:4px">🐛</div><div style="font-weight:700;font-size:13px;color:#dc2626">バグ報告</div></button>
+      <button class="card" style="text-align:center;cursor:pointer;border:none;width:100%;padding:12px" onclick="showPage('inquiry')"><div style="font-size:28px;margin-bottom:4px">📩</div><div style="font-weight:700;font-size:13px">お問い合わせ</div></button>
     </div>
   </div>
 
@@ -715,6 +719,8 @@ function showPage(page) {
   if (page === 'hospitalization') loadKkHospitalizationPage();
   if (page === 'signatures') loadKkSignaturesPage();
   if (page === 'billing') loadKkBillingPage();
+  if (page === 'call-records') loadCallRecords();
+  if (page === 'inquiry' || page === 'bug-report') {}
   if (page === 'genogram') loadGenogramPage();
   if (page === 'forms') loadKkFormsPage();
   document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
@@ -724,7 +730,7 @@ function showPage(page) {
   const navEl = document.getElementById("nav-"+page);
   if (navEl) navEl.classList.add("active");
   else {
-    const menuPages = ['clients','plans','monitoring-reports','assessments','conferences','consultations','counselors','bcp','kasan','hospitalization','signatures','billing','genogram','forms','settings'];
+    const menuPages = ['clients','plans','monitoring-reports','assessments','conferences','consultations','counselors','bcp','kasan','hospitalization','signatures','billing','genogram','forms','settings','call-records','inquiry','bug-report'];
     if (menuPages.includes(page)) { const mn = document.getElementById("nav-menu"); if(mn) mn.classList.add("active"); }
   }
   window.scrollTo(0,0);
@@ -1913,6 +1919,117 @@ function kkDownloadBillingCsv(year, month) {
     </div>
   </div>
 </div>
+  <!-- 面談記録ページ -->
+  <div id="page-call-records" class="page">
+    <div class="flex items-center justify-between mb-3">
+      <div class="font-bold text-lg">🎤 面談記録</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="vcOpenFaceRec()" style="background:#065f46;color:#fff;border:none;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;font-weight:600">🎤 新規録音</button>
+        <button onclick="downloadCrCsv()" style="background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;padding:6px 12px;font-size:12px;cursor:pointer;font-weight:500;color:#374151">📥 CSV</button>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap">
+      <input id="crFilterMember" placeholder="対象者名で絞込" oninput="crDebounce()" style="flex:1;min-width:120px;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px">
+      <select id="crFilterSource" onchange="loadCallRecords()" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;background:#fff">
+        <option value="">全通話種別</option><option value="video">📹 ビデオ通話</option><option value="face">🎤 対面録音</option>
+      </select>
+      <select id="crFilterType" onchange="loadCallRecords()" style="padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;background:#fff">
+        <option value="">全記録種別</option>
+        <optgroup label="対面録音">
+          <option value="モニタリング記録">モニタリング記録</option>
+          <option value="個別支援計画作成会議記録">個別支援計画作成会議記録</option>
+          <option value="スタッフ情報共有">スタッフ情報共有</option>
+          <option value="見学・視察メモ">見学・視察メモ</option>
+        </optgroup>
+        <optgroup label="ビデオ通話">
+          <option value="サービス担当者会議記録">サービス担当者会議記録</option>
+          <option value="家族面談記録">家族面談記録</option>
+          <option value="関係機関連絡調整">関係機関連絡調整</option>
+          <option value="スタッフ間ミーティング">スタッフ間ミーティング</option>
+        </optgroup>
+      </select>
+    </div>
+    <div id="crList"><p style="font-size:13px;color:#9ca3af;text-align:center;padding:20px">読み込み中...</p></div>
+  </div>
+  <!-- 面談記録 編集モーダル -->
+  <div id="crModal" onclick="if(event.target===this)closeCrModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:flex-start;justify-content:center;padding:16px;overflow-y:auto">
+    <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:640px;margin:auto">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+        <div style="font-size:16px;font-weight:700">📝 面談記録を編集</div>
+        <button onclick="closeCrModal()" style="color:#9ca3af;font-size:22px;background:none;border:none;cursor:pointer">✕</button>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+        <div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">対象者</label><input id="crEditMember" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box"></div>
+        <div><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">記録種別</label><input id="crEditType" style="width:100%;padding:8px 10px;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;box-sizing:border-box"></div>
+      </div>
+      <div style="margin-bottom:14px"><label style="font-size:12px;color:#6b7280;display:block;margin-bottom:4px">AI要約（編集可）</label>
+        <textarea id="crEditSummary" rows="8" style="width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px;font-size:13px;line-height:1.6;resize:vertical;box-sizing:border-box"></textarea></div>
+      <div style="margin-bottom:18px">
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+          <label style="font-size:12px;color:#6b7280">文字起こし全文（編集可）</label>
+          <button onclick="toggleTranscript()" id="crTranscriptToggle" style="font-size:11px;color:#7c3aed;background:none;border:none;cursor:pointer;padding:0">▼ 表示</button>
+        </div>
+        <textarea id="crEditTranscript" rows="6" style="display:none;width:100%;padding:10px;border:1px solid #e5e7eb;border-radius:8px;font-size:12px;line-height:1.6;resize:vertical;box-sizing:border-box;color:#555"></textarea>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button onclick="closeCrModal()" style="flex:1;padding:11px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:8px;font-size:14px;cursor:pointer">キャンセル</button>
+        <button onclick="saveCrRecord()" style="flex:2;padding:11px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">💾 保存する</button>
+      </div>
+      <div id="crSaveMsg" style="margin-top:10px;text-align:center;font-size:13px;color:#059669;display:none">✅ 保存しました</div>
+    </div>
+  </div>
+  <!-- お問い合わせページ -->
+  <div id="page-inquiry" class="page">
+    <div class="font-bold text-lg mb-3">📩 お問い合わせ</div>
+    <div class="card mb-3">
+      <p style="font-size:13px;color:#6b7280;margin-bottom:16px">ご質問・ご要望・導入のご相談などお気軽にどうぞ。通常2〜3営業日以内にご返信いたします。</p>
+      <div class="mb-3"><label style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:4px">カテゴリ</label>
+        <select id="inqCategory" style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:14px">
+          <option value="">選択してください</option>
+          <option value="使い方・操作方法">使い方・操作方法</option>
+          <option value="機能追加の要望">機能追加の要望</option>
+          <option value="プラン・料金">プラン・料金について</option>
+          <option value="カスタム相談">カスタム開発の相談</option>
+          <option value="その他">その他</option>
+        </select>
+      </div>
+      <div class="mb-3"><label style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:4px">件名 <span style="color:#dc2626">*</span></label>
+        <input type="text" id="inqTitle" placeholder="例：モニタリング記録の使い方を教えてください" style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:14px;box-sizing:border-box"></div>
+      <div class="mb-4"><label style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:4px">内容 <span style="color:#dc2626">*</span></label>
+        <textarea id="inqBody" rows="5" placeholder="ご質問やご要望の内容をご記入ください。" style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:14px;resize:vertical;box-sizing:border-box"></textarea></div>
+      <div id="inqStatus" style="display:none;font-size:13px;font-weight:700;margin-bottom:12px;padding:8px;border-radius:6px;text-align:center"></div>
+      <button onclick="submitInquiry()" style="width:100%;padding:12px;background:var(--g);color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">送信する</button>
+    </div>
+  </div>
+  <!-- バグ報告フォーム -->
+  <div id="page-bug-report" class="page">
+    <div class="font-bold text-lg mb-3">🐛 バグ報告・改善要望</div>
+    <div class="card mb-3">
+      <p style="font-size:13px;color:#6b7280;margin-bottom:16px">画面の不具合や改善のご意見をお知らせください。送信内容は開発担当者に届きます。</p>
+      <div class="mb-3"><label style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:4px">カテゴリ</label>
+        <select id="brCategory" style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:14px">
+          <option value="">選択してください</option>
+          <option value="表示・レイアウト">表示・レイアウトの問題</option>
+          <option value="ボタン・操作">ボタン・操作の不具合</option>
+          <option value="データ保存">データ保存・取得の問題</option>
+          <option value="通話・録音">通話・録音機能の問題</option>
+          <option value="面談記録">面談記録機能の問題</option>
+          <option value="改善要望">改善要望・新機能の提案</option>
+          <option value="その他">その他</option>
+        </select>
+      </div>
+      <div class="mb-3"><label style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:4px">件名 <span style="color:#dc2626">*</span></label>
+        <input type="text" id="brTitle" placeholder="例：保存ボタンを押しても保存されない" style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:14px;box-sizing:border-box"></div>
+      <div class="mb-3"><label style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:4px">再現手順</label>
+        <textarea id="brSteps" rows="3" placeholder="例：1. ○○ページを開く&#10;2. ○○ボタンを押す&#10;3. ページを更新すると元に戻っている" style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:14px;resize:vertical;box-sizing:border-box"></textarea></div>
+      <div class="mb-3"><label style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:4px">期待する動作</label>
+        <textarea id="brExpected" rows="2" style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:14px;resize:vertical;box-sizing:border-box"></textarea></div>
+      <div class="mb-4"><label style="font-size:13px;font-weight:700;color:#374151;display:block;margin-bottom:4px">実際の動作</label>
+        <textarea id="brActual" rows="2" style="width:100%;border:1px solid #d1d5db;border-radius:6px;padding:8px;font-size:14px;resize:vertical;box-sizing:border-box"></textarea></div>
+      <div id="brStatus" style="display:none;font-size:13px;font-weight:700;margin-bottom:12px;padding:8px;border-radius:6px;text-align:center"></div>
+      <button onclick="submitBugReport()" style="width:100%;padding:12px;background:#dc2626;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">送信する</button>
+    </div>
+  </div>
 <!-- ビデオ通話モーダル -->
 <div id="vcModal" onclick="if(event.target===this)closeVcModal()" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9999;align-items:center;justify-content:center;padding:16px">
   <div style="background:#fff;border-radius:16px;padding:24px;width:100%;max-width:400px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
@@ -1989,6 +2106,93 @@ async function vcOpenFaceRec(){
   var r=await api('/nicemeet-sso-url');
   if(r&&r.url)window.open(r.url,'_blank');
   else window.open('https://meet.gaiaarts.org/record?system=keikaku','_blank');
+}
+
+let crCurrentId=null,crDebTimer=null;
+function crDebounce(){clearTimeout(crDebTimer);crDebTimer=setTimeout(loadCallRecords,400);}
+async function loadCallRecords(){
+  const member=(document.getElementById('crFilterMember')||{}).value||'';
+  const rtype=(document.getElementById('crFilterType')||{}).value||'';
+  const rsource=(document.getElementById('crFilterSource')||{}).value||'';
+  let qs='';
+  if(member) qs+='&member='+encodeURIComponent(member);
+  if(rsource) qs+='&source='+encodeURIComponent(rsource);
+  if(rtype) qs+='&record_type='+encodeURIComponent(rtype);
+  const el=document.getElementById('crList'); if(!el) return;
+  try{
+    const d=await api('/call-records'+(qs?'?'+qs.slice(1):''));
+    if(!d||!d.records||!d.records.length){el.innerHTML='<p style="font-size:13px;color:#9ca3af;text-align:center;padding:20px">まだ面談記録がありません</p>';return;}
+    el.innerHTML=d.records.map(function(r){
+      var dt=r.created_at?r.created_at.slice(0,10):'';
+      var preview=(r.summary_text||'').replace(/[\n\r]/g,' ').slice(0,60);
+      var rJson=JSON.stringify(r).replace(/'/g,"&#39;");
+      return '<div class="card mb-2" onclick="openCrModal(this)" data-record=\''+rJson+'\' style="border-left:4px solid #7c3aed;cursor:pointer">'
+        +'<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px">'
+        +'<div style="font-weight:700;font-size:14px">'+(r.member_name||'（対象者未入力）')
+        +(r.source==='face'?'<span style="font-size:10px;background:#ecfdf5;color:#065f46;border:1px solid #a7f3d0;border-radius:4px;padding:1px 5px;margin-left:6px">🎤 対面</span>':'<span style="font-size:10px;background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe;border-radius:4px;padding:1px 5px;margin-left:6px">📹 ビデオ</span>')
+        +'</div><div style="font-size:11px;color:#9ca3af;flex-shrink:0;margin-left:8px">'+dt+'</div></div>'
+        +'<div style="font-size:12px;color:#6b7280;margin-bottom:4px">'+(r.record_type||'')+(r.staff_name?' / '+r.staff_name:'')+'</div>'
+        +'<div style="font-size:12px;color:#374151;line-height:1.5">'+preview+(preview.length>=60?'…':'')+'</div></div>';
+    }).join('');
+  }catch(e){el.innerHTML='<p style="font-size:13px;color:#e74c3c;text-align:center;padding:20px">読み込みエラー</p>';}
+}
+function openCrModal(el){
+  var r=JSON.parse(el.getAttribute('data-record').replace(/&#39;/g,"'"));
+  crCurrentId=r.id;
+  document.getElementById('crEditMember').value=r.member_name||'';
+  document.getElementById('crEditType').value=r.record_type||'';
+  document.getElementById('crEditSummary').value=r.summary_text||'';
+  document.getElementById('crEditTranscript').value=r.raw_transcript||'';
+  document.getElementById('crEditTranscript').style.display='none';
+  document.getElementById('crTranscriptToggle').textContent='▼ 表示';
+  document.getElementById('crSaveMsg').style.display='none';
+  document.getElementById('crModal').style.display='flex';
+}
+function closeCrModal(){document.getElementById('crModal').style.display='none';crCurrentId=null;}
+function toggleTranscript(){
+  const ta=document.getElementById('crEditTranscript'),btn=document.getElementById('crTranscriptToggle');
+  if(ta.style.display==='none'){ta.style.display='block';btn.textContent='▲ 閉じる';}
+  else{ta.style.display='none';btn.textContent='▼ 表示';}
+}
+async function saveCrRecord(){
+  if(!crCurrentId) return;
+  const body={member_name:document.getElementById('crEditMember').value,record_type:document.getElementById('crEditType').value,summary_text:document.getElementById('crEditSummary').value,raw_transcript:document.getElementById('crEditTranscript').value};
+  const r=await api('/call-records/'+crCurrentId,{method:'PUT',body:JSON.stringify(body)});
+  if(r&&r.ok){const msg=document.getElementById('crSaveMsg');msg.style.display='block';setTimeout(()=>{msg.style.display='none';closeCrModal();loadCallRecords();},1500);}
+}
+async function downloadCrCsv(){
+  const tok=localStorage.getItem('keikaku_token');
+  const res=await fetch('/keikaku/api/call-records/csv',{headers:{Authorization:'Bearer '+tok}});
+  const blob=await res.blob();const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download='call_records.csv';a.click();
+}
+async function submitInquiry(){
+  var title=document.getElementById('inqTitle').value.trim();
+  var body=document.getElementById('inqBody').value.trim();
+  if(!title||!body){alert('件名と内容を入力してください');return;}
+  var payload={category:document.getElementById('inqCategory').value,title:title,body:body};
+  var st=document.getElementById('inqStatus');
+  st.style.display='block';st.style.background='#fef3c7';st.style.color='#92400e';st.textContent='送信中...';
+  try{
+    var r=await api('/inquiry',{method:'POST',body:JSON.stringify(payload)});
+    if(r&&r.ok){
+      st.style.background='#d1fae5';st.style.color='#065f46';st.textContent='送信しました。ありがとうございます。通常2〜3営業日以内にご返信いたします。';
+      document.getElementById('inqTitle').value='';document.getElementById('inqBody').value='';document.getElementById('inqCategory').value='';
+    }else{st.style.background='#fee2e2';st.style.color='#991b1b';st.textContent='送信に失敗しました。';}
+  }catch(e){st.style.background='#fee2e2';st.style.color='#991b1b';st.textContent='通信エラーが発生しました';}
+}
+async function submitBugReport(){
+  var title=document.getElementById('brTitle').value.trim();
+  if(!title){alert('件名を入力してください');return;}
+  var body={category:document.getElementById('brCategory').value,title:title,steps:document.getElementById('brSteps').value.trim(),expected:document.getElementById('brExpected').value.trim(),actual:document.getElementById('brActual').value.trim()};
+  var st=document.getElementById('brStatus');
+  st.style.display='block';st.style.background='#fef3c7';st.style.color='#92400e';st.textContent='送信中...';
+  try{
+    var r=await api('/bug-report',{method:'POST',body:JSON.stringify(body)});
+    if(r&&r.ok){
+      st.style.background='#d1fae5';st.style.color='#065f46';st.textContent='送信しました。ご報告ありがとうございます。';
+      document.getElementById('brTitle').value='';document.getElementById('brSteps').value='';document.getElementById('brExpected').value='';document.getElementById('brActual').value='';
+    }else{st.style.background='#fee2e2';st.style.color='#991b1b';st.textContent='送信に失敗しました。';}
+  }catch(e){st.style.background='#fee2e2';st.style.color='#991b1b';st.textContent='通信エラーが発生しました';}
 }
 </script>
 </body>
