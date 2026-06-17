@@ -736,6 +736,12 @@ def index():
 async def lp_page():
     with open("static/lp.html", encoding="utf-8") as f: return f.read()
 
+@app.get("/lp_custom", response_class=HTMLResponse)
+@app.get("/lp_custom/", response_class=HTMLResponse)
+@app.get("/lp_custom.html", response_class=HTMLResponse)
+async def lp_custom_page():
+    with open("static/lp_custom.html", encoding="utf-8") as f: return f.read()
+
 @app.get("/api/demo-login")
 async def demo_login():
     db = get_db()
