@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<meta name="description" content="計画相談支援向けカスタム開発・OEM対応。担当者ごとの39件上限管理・モニタリングアラート・ジェノグラム作成をスマホで完結。ソースコード納品で御社の資産に。2024年報酬改定・BCP義務化対応。無料ヒアリング受付中。">
+<title>OWL計画相談支援Manager | カスタム開発・OEM導入 | 法人向け受託開発</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+:root{--g:#7c3aed;--gd:#6d28d9;--gl:#ede9fe;--navy:#1e1040;--amber:#d97706;--red:#dc2626}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,'Hiragino Sans','Yu Gothic UI','Meiryo',sans-serif;color:#1e293b;line-height:1.7;background:#fff}
+.container{max-width:1080px;margin:0 auto;padding:0 24px}
+.btn{display:inline-flex;align-items:center;justify-content:center;border-radius:10px;font-weight:700;cursor:pointer;border:none;padding:14px 32px;font-size:16px;transition:all .2s;gap:8px;text-decoration:none}
+.btn-primary{background:var(--g);color:#fff;box-shadow:0 4px 14px rgba(124,58,237,.4)}.btn-primary:hover{background:var(--gd);transform:translateY(-1px)}
+.btn-lg{padding:18px 44px;font-size:18px;border-radius:14px}
+.tag{display:inline-flex;align-items:center;padding:4px 14px;border-radius:20px;font-size:12px;font-weight:700;letter-spacing:.05em}
+header{position:sticky;top:0;z-index:100;background:rgba(255,255,255,.95);backdrop-filter:blur(10px);border-bottom:1px solid #e2e8f0;padding:14px 0}
+.header-inner{display:flex;align-items:center;justify-content:space-between}
+.logo{font-weight:800;font-size:17px;color:var(--g);display:flex;align-items:center;gap:8px}
+.hero{background:linear-gradient(135deg,var(--navy) 0%,var(--g) 100%);padding:90px 0 70px;color:#fff;position:relative;overflow:hidden}
+.hero::before{content:'';position:absolute;inset:0;background:url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23ffffff' fill-opacity='0.04'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/svg%3E")}
+.hero-inner{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;position:relative}
+.hero h1{font-size:clamp(26px,4vw,44px);font-weight:900;line-height:1.25;margin-bottom:18px;letter-spacing:-.02em}
+.hero h1 .hl{color:#c4b5fd}
+.hero p{font-size:17px;opacity:.9;margin-bottom:32px;line-height:1.8}
+.hero-badge{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);border-radius:20px;padding:6px 16px;font-size:13px;font-weight:600;margin-bottom:20px}
+.hero-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:36px}
+.hero-stat{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:14px;padding:16px;text-align:center}
+.hero-stat-num{font-size:26px;font-weight:900;color:#c4b5fd}
+.hero-visual{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:20px;padding:20px}
+section{padding:72px 0}
+.section-title{font-size:clamp(22px,3.5vw,36px);font-weight:900;text-align:center;letter-spacing:-.02em;margin-bottom:14px}
+.section-sub{text-align:center;color:#64748b;font-size:16px;max-width:580px;margin:0 auto 48px}
+.pain{background:#fff7ed}
+.pain-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.pain-card{background:#fff;border-radius:16px;padding:24px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.pain-card .cost{display:inline-block;margin-top:10px;background:#fee2e2;color:#991b1b;padding:4px 12px;border-radius:6px;font-size:12px;font-weight:700}
+.features{background:#f5f3ff}
+.feature-row{display:grid;grid-template-columns:1fr 1fr;gap:60px;align-items:center;margin-bottom:52px}
+.feature-row.rev{direction:rtl}.feature-row.rev>*{direction:ltr}
+.feature-label{display:inline-flex;align-items:center;gap:6px;background:var(--gl);color:var(--gd);border-radius:20px;padding:4px 14px;font-size:12px;font-weight:700;margin-bottom:12px}
+.feature-title{font-size:clamp(20px,2.5vw,26px);font-weight:900;margin-bottom:12px;letter-spacing:-.02em}
+.feature-desc{color:#475569;font-size:15px;line-height:1.9;margin-bottom:16px}
+.feature-point{display:flex;align-items:flex-start;gap:10px;font-size:14px;color:#374151;margin-bottom:8px}
+.feature-point::before{content:'✓';color:var(--g);font-weight:800;flex-shrink:0;margin-top:2px}
+.feature-visual{background:#fff;border-radius:20px;padding:22px;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.fv-title{font-weight:800;font-size:14px;color:#374151;margin-bottom:12px;display:flex;align-items:center;gap:6px}
+.fv-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid #f1f5f9;font-size:13px}
+.fv-row:last-child{border-bottom:none}
+.comp-table{width:100%;border-collapse:collapse;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+.comp-table th,.comp-table td{padding:13px 16px;text-align:center;border-bottom:1px solid #f1f5f9}
+.comp-table th{background:#f8fafc;font-size:13px;font-weight:800}
+.comp-table .our{background:#f5f3ff;font-weight:700}
+.comp-table .fname{text-align:left;font-weight:600;color:#374151;font-size:13px}
+.check{color:var(--g);font-size:18px;font-weight:900}.cross{color:#94a3b8}.tri{color:var(--amber)}
+.roi{background:linear-gradient(135deg,var(--navy),var(--g));color:#fff;padding:72px 0}
+.roi-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-bottom:32px}
+.roi-card{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);border-radius:16px;padding:22px;text-align:center}
+.roi-card-num{font-size:28px;font-weight:900;color:#c4b5fd}
+.sec-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:18px}
+.sec-card{background:#fff;border-radius:16px;padding:22px;display:flex;gap:14px;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.step-row{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:8px;align-items:start}
+.step-card{text-align:center;padding:24px 16px}
+.step-num{width:52px;height:52px;border-radius:26px;background:var(--g);color:#fff;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:900;margin:0 auto 14px}
+.step-arrow{display:flex;align-items:center;justify-content:center;color:#cbd5e1;font-size:28px;padding-top:68px}
+.cta{background:linear-gradient(135deg,var(--g),var(--gd));padding:90px 0;text-align:center;color:#fff}
+footer{background:#0f172a;color:#94a3b8;padding:36px 0;text-align:center;font-size:14px}
+@media(max-width:768px){
+  .hero-inner,.feature-row,.feature-row.rev{grid-template-columns:1fr;direction:ltr}
+  .hero-visual,.step-arrow{display:none}
+  .pain-grid,.roi-grid,.sec-grid{grid-template-columns:1fr!important}
+  .step-row{grid-template-columns:1fr}
+  .hero-stats{grid-template-columns:1fr}
+  .phone-bar-grid{grid-template-columns:repeat(2,1fr)!important}
+  .doc-grid{grid-template-columns:1fr!important}
+  header nav{display:none}
+  header .header-inner>div:last-child{flex-direction:column;gap:4px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container header-inner">
+    <div class="logo"><img src="/keikaku/static/owl_logo.png" style="height:28px;width:auto;vertical-align:middle" alt="">OWL計画相談支援Manager</div>
+    <nav style="display:flex;gap:24px;align-items:center">
+      <a href="#features" style="font-size:14px;font-weight:600;color:#475569;text-decoration:none">機能</a>
+      <a href="#comparison" style="font-size:14px;font-weight:600;color:#475569;text-decoration:none">比較</a>
+      <a href="#price" style="font-size:14px;font-weight:600;color:#475569;text-decoration:none">料金</a>
+    </nav>
+    <div style="display:flex;gap:8px">
+      <a href="https://gaiaarts.org/keikaku/" class="btn btn-primary" style="padding:10px 16px;font-size:13px" target="_blank">📱 デモを見る</a>
+    </div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <div class="hero-inner">
+      <div>
+        <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+          <div class="hero-badge" style="margin-bottom:0">🤝 計画相談支援専用</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(245,158,11,.2);border:1px solid rgba(245,158,11,.5);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;color:#fef3c7">🛠️ 法人向けカスタム開発・OEM対応</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(196,181,253,.15);border:1px solid rgba(196,181,253,.4);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;color:#c4b5fd">🔄 乗り換え・既存システム移行対応</div>
+          <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(220,38,38,.2);border:1px solid rgba(220,38,38,.4);border-radius:20px;padding:6px 14px;font-size:12px;font-weight:700;color:#fca5a5">📋 2024年報酬改定・BCP義務化対応</div>
+        </div>
+        <h1>モニタリング漏れを、<br>二度と起こさない。<br><span class="hl">御社専用に構築し、御社の資産として残す計画相談支援システム。</span></h1>
+        <p>担当者ごとの39件上限管理・モニタリングアラート・ジェノグラム/エコマップ作成をスマホで完結。電子署名・国保連請求CSV・帳票PDF自動生成まで対応。ソースコード納品で御社の資産として永続運用。<strong style="color:#c4b5fd">OEM展開（相談支援事業所向けシステムとして士業・コンサル向けOEM提供等）にも対応。</strong></p>
+        <div style="display:flex;gap:14px;flex-wrap:wrap;margin-bottom:14px">
+          <a href="mailto:kenji.kys@gmail.com?subject=計画相談支援システム カスタム開発のご相談&body=法人名：%0D%0A事業所数・担当者数：%0D%0A現在の管理方法：%0D%0Aご要望：%0D%0Aご担当者名：%0D%0Aご連絡先：" class="btn btn-primary btn-lg">📧 無料ヒアリングを申し込む</a>
+          <a href="https://gaiaarts.org/keikaku/" class="btn btn-lg" style="background:transparent;color:#fff;border:2px solid rgba(255,255,255,.6)" target="_blank">📱 動くデモを見る（ログイン不要）</a>
+        </div>
+        <div style="font-size:12px;color:rgba(255,255,255,.8);margin-bottom:12px;display:flex;flex-wrap:wrap;gap:8px">
+          <span>✓ 無料ヒアリングで御社要件に応じた概算をその場で提示</span>
+          <span>✓ 相談だけでもOK・売り込みなし</span>
+          <span>✓ 開発者が直接対応</span>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat"><div class="hero-stat-num">資産化</div><div style="font-size:11px;opacity:.8">ソースコード納品で<br>御社の資産に</div></div>
+          <div class="hero-stat"><div class="hero-stat-num">完全移行</div><div style="font-size:11px;opacity:.8">データ移行サポート<br>現場を止めない</div></div>
+          <div class="hero-stat"><div class="hero-stat-num">永続対応</div><div style="font-size:11px;opacity:.8">報酬改定・義務化対応を<br>継続する保守契約</div></div>
+        </div>
+      </div>
+      <div class="hero-visual">
+        <div style="font-size:11px;color:#c4b5fd;margin-bottom:10px;font-weight:600">📊 モニタリングアラート（イメージ）</div>
+        <div style="background:#0f172a;border-radius:12px;padding:14px;font-size:12px">
+          <div style="color:#64748b;font-size:10px;margin-bottom:10px">担当：山田 相談員（32件/39件）</div>
+          <div style="background:rgba(220,38,38,.15);border-left:3px solid #dc2626;border-radius:0 8px 8px 0;padding:8px 10px;margin-bottom:6px">
+            <div style="color:#fca5a5;font-weight:700">🔴 期限切れ（2件）</div>
+            <div style="color:#fca5a5;font-size:11px">田中さん・佐藤さん — すぐに対応してください</div>
+          </div>
+          <div style="background:rgba(217,119,6,.15);border-left:3px solid #d97706;border-radius:0 8px 8px 0;padding:8px 10px;margin-bottom:6px">
+            <div style="color:#fcd34d;font-weight:700">⚠️ 今月（3件）</div>
+            <div style="color:#fcd34d;font-size:11px">鈴木さん・高橋さん・伊藤さん</div>
+          </div>
+          <div style="background:rgba(124,58,237,.15);border-left:3px solid #7c3aed;border-radius:0 8px 8px 0;padding:8px 10px">
+            <div style="color:#c4b5fd;font-weight:700">✅ 来月以降（27件）問題なし</div>
+            <div style="color:#c4b5fd;font-size:11px">次回まで余裕あり</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 帳票PDF自動生成 -->
+<section style="background:linear-gradient(135deg,#f5f3ff,#ede9fe);padding:52px 0;border-top:4px solid #7c3aed">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:28px">
+      <span style="display:inline-flex;align-items:center;gap:8px;background:#7c3aed;color:#fff;border-radius:20px;padding:6px 20px;font-size:13px;font-weight:700;margin-bottom:12px">✨ 帳票PDF自動生成（NEW）</span>
+      <h2 style="font-size:clamp(20px,3vw,30px);font-weight:900;letter-spacing:-.02em;color:#1e1040;margin-bottom:10px">法定帳票が入力データから<br>自動生成される</h2>
+      <p style="color:#475569;font-size:15px;max-width:560px;margin:0 auto">書類作成工数を大幅削減。現場の入力データがそのまま帳票に変わります。</p>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:860px;margin:0 auto 24px" class="doc-grid">
+      <div style="background:#fff;border-radius:14px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,.07);text-align:center;border-top:3px solid #7c3aed">
+        <div style="font-size:32px;margin-bottom:8px">📋</div>
+        <div style="font-weight:800;font-size:14px;color:#6d28d9;margin-bottom:6px">サービス等利用計画書</div>
+        <p style="font-size:12px;color:#475569;line-height:1.7">クライアント・計画選択でPDF出力。そのまま印刷・提出できます。</p>
+      </div>
+      <div style="background:#fff;border-radius:14px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,.07);text-align:center;border-top:3px solid #7c3aed">
+        <div style="font-size:32px;margin-bottom:8px">📊</div>
+        <div style="font-weight:800;font-size:14px;color:#6d28d9;margin-bottom:6px">モニタリング報告書</div>
+        <p style="font-size:12px;color:#475569;line-height:1.7">実績データから自動生成。6ヶ月ごとの義務書類をワンクリックで作成。</p>
+      </div>
+      <div style="background:#fff;border-radius:14px;padding:20px;box-shadow:0 2px 10px rgba(0,0,0,.07);text-align:center;border-top:3px solid #7c3aed">
+        <div style="font-size:32px;margin-bottom:8px">📄</div>
+        <div style="font-weight:800;font-size:14px;color:#6d28d9;margin-bottom:6px">週間計画・アセスメント</div>
+        <p style="font-size:12px;color:#475569;line-height:1.7">初期評価・アセスメント記録をPDF化。相談員の書類作成負担を大幅削減。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 乗り換えセクション -->
+<section style="background:#1e1040;padding:56px 0">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:32px">
+      <span class="tag" style="background:rgba(196,181,253,.15);color:#c4b5fd;margin-bottom:10px;display:inline-flex;border:1px solid rgba(196,181,253,.3)">🔄 乗り換えをご検討中の方へ</span>
+      <h2 style="font-size:clamp(20px,3vw,30px);font-weight:900;letter-spacing:-.02em;color:#fff">乗り換えの不安に<br>答えます</h2>
+      <p style="color:rgba(255,255,255,.7);font-size:15px;margin-top:10px;max-width:600px;margin-left:auto;margin-right:auto">「また同じ目に遭うのでは」——その不安を、構造ごと解消します。</p>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;max-width:880px;margin:0 auto">
+      <div style="background:rgba(255,255,255,.07);border:1px solid rgba(196,181,253,.25);border-radius:18px;padding:26px">
+        <div style="font-size:28px;margin-bottom:12px">📦</div>
+        <div style="font-weight:900;font-size:16px;color:#c4b5fd;margin-bottom:8px">ソースコード納品——システムは御社の資産に</div>
+        <p style="font-size:13px;color:rgba(255,255,255,.75);line-height:1.9">万一当社が対応できなくなっても、システムは御社の資産として残り、他社でも保守可能な形で納品します。大手SaaSには絶対に言えない、受託開発だけの強みです。</p>
+      </div>
+      <div style="background:rgba(255,255,255,.07);border:1px solid rgba(196,181,253,.25);border-radius:18px;padding:26px">
+        <div style="font-size:28px;margin-bottom:12px">🖥️</div>
+        <div style="font-weight:900;font-size:16px;color:#c4b5fd;margin-bottom:8px">自社サーバー・クラウドを自由に選択</div>
+        <p style="font-size:13px;color:rgba(255,255,255,.75);line-height:1.9">オンプレミス（自社サーバー）またはクラウドを御社の情報システム方針に合わせて選択可能。ベンダーロックインから脱却し、長期にわたり安心して運用できます。</p>
+      </div>
+      <div style="background:rgba(255,255,255,.07);border:1px solid rgba(196,181,253,.25);border-radius:18px;padding:26px">
+        <div style="font-size:28px;margin-bottom:12px">🔄</div>
+        <div style="font-weight:900;font-size:16px;color:#c4b5fd;margin-bottom:8px">乗り換えで現場を止めない</div>
+        <p style="font-size:13px;color:rgba(255,255,255,.75);line-height:1.9">既存システムからのデータ移行サポート・並行運用期間の設定・全スタッフ向け操作研修まで一貫対応。複数事業所の一括移行にも対応します。</p>
+      </div>
+      <div style="background:rgba(255,255,255,.07);border:1px solid rgba(196,181,253,.25);border-radius:18px;padding:26px">
+        <div style="font-size:28px;margin-bottom:12px">🤝</div>
+        <div style="font-weight:900;font-size:16px;color:#c4b5fd;margin-bottom:8px">39件上限・ジェノグラム・BCP記録を標準搭載可</div>
+        <p style="font-size:13px;color:rgba(255,255,255,.75);line-height:1.9">担当者ごとの39件上限管理・ジェノグラム/エコマップ作成・BCP記録管理を標準搭載可能。報酬改定にも継続的に対応する保守契約込みです。</p>
+      </div>
+    </div>
+    <div style="margin-top:28px;background:rgba(196,181,253,.1);border:1px solid rgba(196,181,253,.3);border-radius:14px;padding:20px 24px;text-align:center;max-width:880px;margin-left:auto;margin-right:auto">
+      <div style="font-weight:900;font-size:15px;color:#c4b5fd;margin-bottom:6px">👤 開発者直結——コールセンターのたらい回しなし</div>
+      <p style="font-size:13px;color:rgba(255,255,255,.75)">設計・開発した本人が直接対応。現場の困りごとに即日〜翌営業日でお答えします。</p>
+    </div>
+  </div>
+</section>
+
+<!-- PAIN -->
+<section class="pain">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:14px"><span class="tag" style="background:#fff7ed;color:#92400e">計画相談支援事業所の課題</span></div>
+    <h2 class="section-title">計画相談支援事業所が抱える<br>「見えないリスク」</h2>
+    <p class="section-sub">書類管理の不備が、直接的な減算・返還請求につながる。現場は忙しくて対応できない——そのサイクルを断ち切ります。</p>
+    <div style="background:#fff;border-left:6px solid #dc2626;padding:20px;margin-bottom:32px;max-width:800px;margin-left:auto;margin-right:auto;border-radius:0 12px 12px 0">
+      <div style="font-weight:900;font-size:18px;color:#991b1b;margin-bottom:10px">🔴 義務化ラッシュで何が変わる？</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;font-size:14px;color:#374151">
+        <div><div style="font-weight:700;color:#dc2626;margin-bottom:4px">BCP未策定減算</div>2024年から業務継続計画（BCP）未策定で<strong>1%減算</strong>。策定・記録・訓練の記録が必要。</div>
+        <div><div style="font-weight:700;color:#dc2626;margin-bottom:4px">虐待防止・モニタリング義務</div>虐待防止研修の記録義務化。モニタリング実施義務（6ヶ月ごと）の漏れが<strong>返還請求に直結</strong>。</div>
+      </div>
+      <div style="margin-top:12px;font-weight:700;color:#7c3aed;font-size:13px">✓ このシステムでモニタリング期限・BCP記録・書類作成を一元化し、義務化ラッシュに対応できる体制を整えましょう。</div>
+    </div>
+    <!-- 統計バー -->
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;max-width:760px;margin:0 auto 40px;text-align:center">
+      <div style="background:#fff;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07)">
+        <div style="font-size:36px;font-weight:900;color:#7c3aed">39件</div>
+        <div style="font-size:13px;color:#64748b;margin-top:4px">担当者1名の<strong>上限件数</strong><br>（超過は行政指導の対象）</div>
+      </div>
+      <div style="background:#fff;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07)">
+        <div style="font-size:36px;font-weight:900;color:#dc2626">6ヶ月</div>
+        <div style="font-size:13px;color:#64748b;margin-top:4px"><strong>モニタリング</strong>の必須周期<br>漏れると返還請求</div>
+      </div>
+      <div style="background:#fff;border-radius:14px;padding:20px;box-shadow:0 2px 8px rgba(0,0,0,.07)">
+        <div style="font-size:36px;font-weight:900;color:#dc2626">1%</div>
+        <div style="font-size:13px;color:#64748b;margin-top:4px"><strong>BCP未策定</strong>の減算<br>2024年義務化・気づかず損失</div>
+      </div>
+    </div>
+    <div class="pain-grid" style="grid-template-columns:repeat(2,1fr)">
+      <div class="pain-card">
+        <div style="font-size:36px;margin-bottom:12px">📋</div>
+        <h3 style="font-size:17px;font-weight:800;margin-bottom:8px">モニタリング期限の見落とし</h3>
+        <p style="color:#64748b;font-size:14px;line-height:1.8">6ヶ月ごとの実施義務を漏らすと<strong>書類不備として減算</strong>。担当件数が多いと期限管理が追いつかず、気づいたときには返還請求になっているケースも。</p>
+        <span class="cost">実地指導で指摘→返還請求リスク</span>
+      </div>
+      <div class="pain-card">
+        <div style="font-size:36px;margin-bottom:12px">📊</div>
+        <h3 style="font-size:17px;font-weight:800;margin-bottom:8px">担当者上限（39件）の管理</h3>
+        <p style="color:#64748b;font-size:14px;line-height:1.8">相談支援専門員1名あたりの<strong>担当件数上限は39件</strong>。誰がどのくらい持っているか即座に把握できず、超過リスクを見逃してしまう。</p>
+        <span class="cost">上限超過→行政指導・返還請求</span>
+      </div>
+      <div class="pain-card">
+        <div style="font-size:36px;margin-bottom:12px">🔴</div>
+        <h3 style="font-size:17px;font-weight:800;margin-bottom:8px">BCP・虐待防止の記録漏れ</h3>
+        <p style="color:#64748b;font-size:14px;line-height:1.8">2024年義務化の<strong>「業務継続計画（BCP）未策定減算（1%）」</strong>や虐待防止研修の記録義務化。気づかずに減算されているケースが続出。</p>
+        <span class="cost">新設減算を知らないだけで毎月損失</span>
+      </div>
+      <div class="pain-card">
+        <div style="font-size:36px;margin-bottom:12px">📝</div>
+        <h3 style="font-size:17px;font-weight:800;margin-bottom:8px">書類作成工数が膨大</h3>
+        <p style="color:#64748b;font-size:14px;line-height:1.8">サービス等利用計画書・モニタリング報告書を毎回ゼロから作成。紙とExcelの二重管理で残業が続き、本来の相談支援業務に集中できない。</p>
+        <span class="cost">月末の書類作成に毎月丸一日ロス</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="features" id="features">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:14px"><span class="tag" style="background:var(--gl);color:var(--gd)">主要機能</span></div>
+    <h2 class="section-title">書類業務を<br>スマホで完結させる</h2>
+    <p class="section-sub">計画相談支援事業所に本当に必要な機能だけを凝縮。ITが苦手なスタッフでも当日から使えます。</p>
+
+    <div class="feature-row">
+      <div>
+        <div class="feature-label">📊 減算防止の要</div>
+        <h3 class="feature-title">モニタリングアラートで<br>期限を追跡</h3>
+        <p class="feature-desc">担当者ごとに6ヶ月ごとのモニタリング期限を追跡。<strong>期限切れはダッシュボードで赤アラート</strong>、今月・来月でカテゴリ表示し、漏れを未然に防ぎます。</p>
+        <div>
+          <div class="feature-point">全クライアントのモニタリング期限を担当者別に一覧表示</div>
+          <div class="feature-point">期限切れ・今月・来月以降でカテゴリ分け表示</div>
+          <div class="feature-point">更新後は次回日程をその場で登録できる</div>
+        </div>
+      </div>
+      <div class="feature-visual">
+        <div class="fv-title">📊 モニタリング期限管理</div>
+        <div style="background:#fee2e2;border-left:4px solid #dc2626;border-radius:0 10px 10px 0;padding:10px 12px;margin-bottom:8px">
+          <div style="font-weight:700;font-size:13px;color:#991b1b">🔴 期限切れ（2件）</div>
+          <div style="font-size:12px;color:#991b1b;margin-top:4px">田中さん・佐藤さん — すぐに対応してください</div>
+        </div>
+        <div style="background:#fef3c7;border-left:4px solid #d97706;border-radius:0 10px 10px 0;padding:10px 12px;margin-bottom:8px">
+          <div style="font-weight:700;font-size:13px;color:#92400e">⚠️ 今月（3件）</div>
+          <div style="font-size:12px;color:#92400e;margin-top:4px">鈴木さん・高橋さん・伊藤さん</div>
+        </div>
+        <div style="background:#ede9fe;border-left:4px solid #7c3aed;border-radius:0 10px 10px 0;padding:10px 12px">
+          <div style="font-weight:700;font-size:13px;color:#6d28d9">✅ 来月以降（27件）</div>
+          <div style="font-size:12px;color:#6d28d9;margin-top:4px">問題なし。次回まで余裕あり。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="feature-row rev">
+      <div>
+        <div class="feature-label">🗺️ 関係者可視化ツール</div>
+        <h3 class="feature-title">ジェノグラム・エコマップを<br>Webで作成</h3>
+        <p class="feature-desc">Webブラウザ上でSVG描画。クライアントの<strong>家族関係と支援ネットワークを可視化</strong>。アプリインストール不要で、タブレット・スマホからも作成できます。</p>
+        <div>
+          <div class="feature-point">ブラウザ上でジェノグラムをタップ操作で作成</div>
+          <div class="feature-point">エコマップで支援機関・家族・地域資源を可視化</div>
+          <div class="feature-point">作成した図はPDF出力・クライアント記録に紐付け</div>
+        </div>
+      </div>
+      <div class="feature-visual">
+        <div class="fv-title">🗺️ ジェノグラム作成（イメージ）</div>
+        <div style="background:#f5f3ff;border-radius:10px;padding:12px;margin-bottom:8px;text-align:center">
+          <div style="font-size:11px;color:#6d28d9;margin-bottom:8px;font-weight:600">田中 太郎さんのジェノグラム</div>
+          <div style="display:flex;justify-content:center;align-items:center;gap:8px;flex-wrap:wrap">
+            <div style="background:#ddd6fe;border:2px solid #7c3aed;border-radius:4px;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#6d28d9">父</div>
+            <div style="font-size:10px;color:#94a3b8">—</div>
+            <div style="background:#ddd6fe;border:2px solid #7c3aed;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#6d28d9">母</div>
+          </div>
+          <div style="height:16px;border-left:2px solid #7c3aed;width:0;margin:0 auto"></div>
+          <div style="background:#7c3aed;border-radius:4px;width:36px;height:36px;display:flex;align-items:center;justify-content:center;font-size:10px;color:#fff;margin:0 auto">本人</div>
+        </div>
+        <div class="fv-row"><span style="font-size:12px;color:#64748b">支援機関</span><span style="font-weight:700;color:#7c3aed">3件登録済み</span></div>
+        <div class="fv-row"><span style="font-size:12px;color:#64748b">家族関係</span><span style="font-weight:700;color:#7c3aed">5名登録済み</span></div>
+        <div style="margin-top:10px;background:#ede9fe;border-radius:10px;padding:10px 12px;font-size:12px;color:#6d28d9">
+          タップで作成 → PDF出力で記録に追加
+        </div>
+      </div>
+    </div>
+
+    <div class="feature-row">
+      <div>
+        <div class="feature-label">💳 請求業務の自動化</div>
+        <h3 class="feature-title">国保連請求CSVを<br>自動生成</h3>
+        <p class="feature-desc">月次実績→請求データ自動計算→CSV出力。<strong>毎月の請求業務を大幅に削減</strong>。電子署名対応で、サービス等利用計画書への署名もオンラインで完結。</p>
+        <div>
+          <div class="feature-point">月次実績から請求データを自動計算</div>
+          <div class="feature-point">国保連請求CSV形式で出力（既存ソフトとの並行利用可）</div>
+          <div class="feature-point">電子署名対応でサービス計画書への署名もオンライン完結</div>
+        </div>
+      </div>
+      <div class="feature-visual">
+        <div class="fv-title">💳 国保連請求CSV（6月分）</div>
+        <div class="fv-row"><span style="font-weight:700">田中 太郎</span><span style="font-weight:700;color:#7c3aed">計画相談 1件</span></div>
+        <div class="fv-row"><span style="font-weight:700">佐藤 花子</span><span style="font-weight:700;color:#7c3aed">モニタリング 1件</span></div>
+        <div class="fv-row"><span style="font-weight:700">鈴木 次郎</span><span style="font-weight:700;color:#7c3aed">計画相談 1件</span></div>
+        <div style="background:#ede9fe;border-radius:10px;padding:10px 12px;display:flex;justify-content:space-between;margin-top:8px">
+          <span style="font-size:13px;font-weight:700;color:#7c3aed">月間件数合計</span>
+          <span style="font-size:18px;font-weight:900;color:#7c3aed">32件</span>
+        </div>
+        <button style="width:100%;margin-top:8px;background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:8px;font-size:12px;font-weight:700;cursor:default;opacity:.7">CSVでダウンロード</button>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- SMARTPHONE BAR -->
+<section style="background:var(--g);padding:36px 0">
+  <div class="container">
+    <div style="text-align:center;color:#fff;margin-bottom:22px">
+      <div style="font-size:13px;opacity:.8;font-weight:600;margin-bottom:8px">📱 相談支援専門員もスタッフも使いやすい設計</div>
+      <h2 style="font-size:clamp(18px,3vw,26px);font-weight:900">ITが苦手な相談員でも<br>当日から使えます</h2>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:14px;max-width:800px;margin:0 auto" class="phone-bar-grid">
+      <div style="background:rgba(255,255,255,.12);border-radius:14px;padding:18px;text-align:center;border:1px solid rgba(255,255,255,.2)">
+        <div style="font-size:28px;margin-bottom:8px">👆</div>
+        <div style="font-weight:800;font-size:13px;color:#c4b5fd;margin-bottom:4px">タップでモニタリング記録</div>
+        <div style="font-size:11px;opacity:.8">実施記録・次回日程をボタン選択で入力</div>
+      </div>
+      <div style="background:rgba(255,255,255,.12);border-radius:14px;padding:18px;text-align:center;border:1px solid rgba(255,255,255,.2)">
+        <div style="font-size:28px;margin-bottom:8px">📊</div>
+        <div style="font-weight:800;font-size:13px;color:#c4b5fd;margin-bottom:4px">39件上限をダッシュボードで即確認</div>
+        <div style="font-size:11px;opacity:.8">担当者ごとの件数をリアルタイム把握</div>
+      </div>
+      <div style="background:rgba(255,255,255,.12);border-radius:14px;padding:18px;text-align:center;border:1px solid rgba(255,255,255,.2)">
+        <div style="font-size:28px;margin-bottom:8px">🔒</div>
+        <div style="font-weight:800;font-size:13px;color:#c4b5fd;margin-bottom:4px">アプリDL不要</div>
+        <div style="font-size:11px;opacity:.8">ブラウザで開くだけ。インストール作業ゼロ</div>
+      </div>
+      <div style="background:rgba(255,255,255,.12);border-radius:14px;padding:18px;text-align:center;border:1px solid rgba(255,255,255,.2)">
+        <div style="font-size:28px;margin-bottom:8px">🗺️</div>
+        <div style="font-weight:800;font-size:13px;color:#c4b5fd;margin-bottom:4px">ジェノグラムはタップで作成</div>
+        <div style="font-size:11px;opacity:.8">専用ソフト不要・ブラウザ上で完結</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARISON -->
+<section id="comparison" style="background:#fff;padding:72px 0">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:14px"><span class="tag" style="background:var(--gl);color:var(--gd)">競合比較</span></div>
+    <h2 class="section-title">他社との違い</h2>
+    <div style="overflow-x:auto">
+      <table class="comp-table">
+        <thead><tr>
+          <th class="fname" style="width:32%">機能</th>
+          <th style="background:#f5f3ff;color:var(--g)">💜 このシステム</th>
+          <th>大手計画相談SaaS A</th>
+          <th>大手計画相談SaaS B</th>
+          <th>Excelテンプレート</th>
+        </tr></thead>
+        <tbody>
+          <tr><td class="fname">スマホ最適化</td><td class="our"><span class="check">✓</span></td><td><span class="tri">△</span></td><td><span class="tri">△</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td class="fname">モニタリング期限アラート</td><td class="our"><span class="check">✓</span></td><td><span class="tri">△</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td class="fname">担当者39件上限管理</td><td class="our"><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="tri">△</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td class="fname">ジェノグラム・エコマップ</td><td class="our"><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td class="fname">国保連請求CSV</td><td class="our"><span class="check">✓</span></td><td><span class="check">✓</span></td><td><span class="tri">△</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td class="fname">電子署名対応</td><td class="our"><span class="check">✓</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr><td class="fname">BCP・虐待防止記録</td><td class="our"><span class="check">✓</span></td><td><span class="tri">△</span></td><td><span class="cross">✗</span></td><td><span class="cross">✗</span></td></tr>
+          <tr style="background:#f5f3ff">
+            <td class="fname">開発者への直接問い合わせ</td>
+            <td class="our"><span style="font-size:13px;font-weight:700;color:var(--g)">即日〜翌営業日</span></td>
+            <td style="font-size:13px;color:#9ca3af">コールセンター</td>
+            <td style="font-size:13px;color:#9ca3af">コールセンター</td>
+            <td style="font-size:13px;color:#dc2626">なし</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:28px;background:linear-gradient(135deg,#f5f3ff,#ede9fe);border:2px solid #c4b5fd;border-radius:18px;padding:28px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px">
+        <div style="font-size:32px">🛠️</div>
+        <div>
+          <div style="font-weight:900;font-size:18px;color:#4c1d95">御社の業務フローに合わせて、フルカスタマイズできます</div>
+          <div style="font-size:13px;color:#6d28d9;margin-top:2px">大手SaaSにはできない柔軟な対応が、このシステムの最大の強みです</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">
+        <div style="background:#fff;border-radius:12px;padding:14px">
+          <div style="font-size:20px;margin-bottom:6px">📄</div>
+          <div style="font-weight:700;font-size:13px;color:#6d28d9">帳票を自社書式に変更</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:4px">計画書・報告書・アセスメントなど既存フォーマットに合わせて対応</div>
+        </div>
+        <div style="background:#fff;border-radius:12px;padding:14px">
+          <div style="font-size:20px;margin-bottom:6px">⚙️</div>
+          <div style="font-weight:700;font-size:13px;color:#6d28d9">独自の入力項目・機能を追加</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:4px">現場で必要な項目・チェックリスト・ワークフローを個別に実装</div>
+        </div>
+        <div style="background:#fff;border-radius:12px;padding:14px">
+          <div style="font-size:20px;margin-bottom:6px">🔗</div>
+          <div style="font-weight:700;font-size:13px;color:#6d28d9">既存ソフト・システムとの連携</div>
+          <div style="font-size:12px;color:#6b7280;margin-top:4px">請求ソフト・グループウェアとのCSV・API連携</div>
+        </div>
+      </div>
+      <div style="margin-top:16px;text-align:center;font-size:13px;color:#6d28d9;font-weight:700">
+        💬 カスタム内容・費用感はお気軽にご相談ください ─ 開発者が直接ご回答します
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ROI -->
+<section class="roi">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:14px"><span class="tag" style="background:rgba(255,255,255,.15);color:#fff">導入効果</span></div>
+    <h2 class="section-title" style="color:#fff">「書く時間」が<br>「支援する時間」に変わる</h2>
+    <p class="section-sub" style="color:rgba(255,255,255,.8)">規模を問わず、現場で確実に起きている時間の無駄を削ります。</p>
+    <div class="roi-grid">
+      <div class="roi-card"><div style="font-size:28px;margin-bottom:8px">📋</div><div class="roi-card-num">ゼロ</div><div style="font-size:14px;opacity:.8;margin-top:6px">モニタリング漏れ・<br>減算</div></div>
+      <div class="roi-card"><div style="font-size:28px;margin-bottom:8px">📊</div><div class="roi-card-num">見える化</div><div style="font-size:14px;opacity:.8;margin-top:6px">39件担当件数<br>管理</div></div>
+      <div class="roi-card"><div style="font-size:28px;margin-bottom:8px">📄</div><div class="roi-card-num">1クリック</div><div style="font-size:14px;opacity:.8;margin-top:6px">帳票PDF・<br>請求CSV生成</div></div>
+    </div>
+    <div style="background:rgba(255,255,255,.12);border:2px solid rgba(255,255,255,.25);border-radius:20px;padding:36px;text-align:center">
+      <div style="font-size:16px;opacity:.8;margin-bottom:10px">小規模事業所から複数事業所・OEM展開まで対応</div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:16px" class="scale-plans">
+        <div style="background:rgba(255,255,255,.1);border-radius:14px;padding:18px;text-align:center">
+          <div style="font-size:12px;opacity:.7;margin-bottom:6px">小規模（〜20名）</div>
+          <div style="font-size:18px;font-weight:900;color:#c4b5fd">まずはご相談</div>
+          <div style="font-size:11px;opacity:.7;margin-top:6px">規模・要件に応じて<br>最適なプランをご提案</div>
+        </div>
+        <div style="background:rgba(255,255,255,.18);border:2px solid rgba(255,255,255,.4);border-radius:14px;padding:18px;text-align:center">
+          <div style="font-size:12px;color:#c4b5fd;font-weight:700;margin-bottom:6px">▶ 複数事業所・法人</div>
+          <div style="font-size:20px;font-weight:900;color:#c4b5fd">法人プランで<br>お得に</div>
+          <div style="font-size:11px;opacity:.7;margin-top:6px">複数担当者・事業所管理込み</div>
+        </div>
+        <div style="background:rgba(255,255,255,.1);border-radius:14px;padding:18px;text-align:center">
+          <div style="font-size:12px;opacity:.7;margin-bottom:6px">OEM・再販</div>
+          <div style="font-size:20px;font-weight:900;color:#c4b5fd">カスタム<br>OEM対応</div>
+          <div style="font-size:11px;opacity:.7;margin-top:6px">御社ブランドで展開</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECURITY -->
+<section style="background:#f8fafc;padding:72px 0">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:14px"><span class="tag" style="background:var(--gl);color:var(--gd)">安心・安全</span></div>
+    <h2 class="section-title">安心して使える<br>6つのポイント</h2>
+    <div class="sec-grid">
+      <div class="sec-card"><div style="font-size:26px">🇯🇵</div><div><h4 style="font-weight:800;font-size:15px;margin-bottom:4px">データは国内サーバーのみ</h4><p style="color:#64748b;font-size:13px">クライアントの個人情報・相談記録は全て日本国内で管理。</p></div></div>
+      <div class="sec-card"><div style="font-size:26px">🔒</div><div><h4 style="font-weight:800;font-size:15px;margin-bottom:4px">事業所間のデータは完全独立</h4><p style="color:#64748b;font-size:13px">複数事業所を運営する法人でも、データは事業所ごとに独立管理。</p></div></div>
+      <div class="sec-card"><div style="font-size:26px">💾</div><div><h4 style="font-weight:800;font-size:15px;margin-bottom:4px">毎日自動バックアップ</h4><p style="color:#64748b;font-size:13px">大切な相談記録・計画書データを毎日自動でバックアップ。</p></div></div>
+      <div class="sec-card"><div style="font-size:26px">🛠️</div><div><h4 style="font-weight:800;font-size:15px;margin-bottom:4px">御社専用カスタマイズ</h4><p style="color:#64748b;font-size:13px">独自の記録様式・帳票に合わせた改修が可能。大手SaaSにはできない柔軟さ。</p></div></div>
+      <div class="sec-card"><div style="font-size:26px">📞</div><div><h4 style="font-weight:800;font-size:15px;margin-bottom:4px">開発者が直接サポート</h4><p style="color:#64748b;font-size:13px">コールセンターへのたらい回しなし。問題解決が速い。</p></div></div>
+      <div class="sec-card"><div style="font-size:26px">💳</div><div><h4 style="font-weight:800;font-size:15px;margin-bottom:4px">国保連請求CSV対応</h4><p style="color:#64748b;font-size:13px">実績記録から請求データを自動算出し、国保連請求CSVを月1回生成。既存ソフトも並行利用可。</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- PLANS -->
+<section style="background:#f8fafc;padding:56px 0" id="price">
+  <div class="container" style="max-width:720px">
+    <div style="text-align:center;margin-bottom:28px">
+      <span style="display:inline-block;background:#fef3c7;color:#92400e;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700;margin-bottom:12px">🛠️ 導入形態</span>
+      <h2 style="font-size:clamp(22px,4vw,32px);font-weight:900;margin-bottom:8px">カスタム開発・OEM導入に対応</h2>
+      <p style="color:#64748b;font-size:15px">貴社ブランドで、業務フローに完全に合わせたシステムを構築します</p>
+    </div>
+    <div style="background:#fff;border-radius:20px;padding:32px;box-shadow:0 4px 20px rgba(0,0,0,.08);border-top:4px solid var(--g)">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px">
+        <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:#374151"><span style="color:#f59e0b;font-weight:900">✓</span> ロゴ・カラーカスタマイズ</div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:#374151"><span style="color:#f59e0b;font-weight:900">✓</span> 独自帳票・書類フォーマット</div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:#374151"><span style="color:#f59e0b;font-weight:900">✓</span> 自社サーバー・クラウド選択可</div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:#374151"><span style="color:#f59e0b;font-weight:900">✓</span> 複数事業所・OEM展開対応</div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:#374151"><span style="color:#f59e0b;font-weight:900">✓</span> ソースコード納品可</div>
+        <div style="display:flex;align-items:center;gap:8px;font-size:14px;color:#374151"><span style="color:#f59e0b;font-weight:900">✓</span> 初期費用＋保守契約</div>
+      </div>
+      <a href="mailto:kenji.kys@gmail.com?subject=計画相談支援システム カスタム開発のご相談&body=法人名：%0D%0A事業所数・担当者数：%0D%0A現在の管理方法：%0D%0Aご要望：%0D%0Aご担当者名：%0D%0Aご連絡先：" style="display:block;text-align:center;padding:14px;background:var(--g);color:#fff;border-radius:12px;font-weight:700;font-size:15px;text-decoration:none">📧 カスタム開発について相談する（無料）</a>
+    </div>
+  </div>
+</section>
+
+<!-- STEPS -->
+<section style="background:#fff;padding:72px 0">
+  <div class="container">
+    <div style="text-align:center;margin-bottom:14px"><span style="background:#fef3c7;color:#92400e;border-radius:20px;padding:5px 14px;font-size:12px;font-weight:700">開発フロー</span></div>
+    <h2 class="section-title">ご契約からリリースまで</h2>
+    <p class="section-sub">ヒアリングから納品まで、開発者が一貫してサポートします</p>
+    <div style="display:grid;grid-template-columns:1fr auto 1fr auto 1fr auto 1fr auto 1fr;gap:8px;align-items:start;max-width:900px;margin:0 auto">
+      <div style="text-align:center;padding:16px 8px;background:#f8fafc;border-radius:12px">
+        <div style="width:36px;height:36px;background:var(--g);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;margin:0 auto 10px">1</div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:4px">無料ヒアリング</div>
+        <div style="font-size:11px;color:#64748b">業務フロー・要望を確認</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:18px;padding-top:16px">→</div>
+      <div style="text-align:center;padding:16px 8px;background:#f8fafc;border-radius:12px">
+        <div style="width:36px;height:36px;background:var(--g);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;margin:0 auto 10px">2</div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:4px">要件定義・見積</div>
+        <div style="font-size:11px;color:#64748b">機能一覧と費用を提示</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:18px;padding-top:16px">→</div>
+      <div style="text-align:center;padding:16px 8px;background:#f8fafc;border-radius:12px">
+        <div style="width:36px;height:36px;background:var(--g);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;margin:0 auto 10px">3</div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:4px">開発・テスト</div>
+        <div style="font-size:11px;color:#64748b">進捗を随時共有</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:18px;padding-top:16px">→</div>
+      <div style="text-align:center;padding:16px 8px;background:#f8fafc;border-radius:12px">
+        <div style="width:36px;height:36px;background:var(--g);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;margin:0 auto 10px">4</div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:4px">納品・研修</div>
+        <div style="font-size:11px;color:#64748b">スタッフ向け操作説明</div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:center;color:#94a3b8;font-size:18px;padding-top:16px">→</div>
+      <div style="text-align:center;padding:16px 8px;background:#fef3c7;border-radius:12px;border:1px solid #fde68a">
+        <div style="width:36px;height:36px;background:#f59e0b;color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:14px;margin:0 auto 10px">5</div>
+        <div style="font-weight:700;font-size:13px;margin-bottom:4px">保守・改善</div>
+        <div style="font-size:11px;color:#92400e">継続サポート</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section class="cta">
+  <div class="container">
+    <h2>まずはご要件をお聞かせください</h2>
+    <p>ヒアリング・お見積もりは完全無料。強引な営業は一切しません。</p>
+    <div style="display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin-bottom:20px">
+      <a href="mailto:kenji.kys@gmail.com?subject=計画相談支援システム カスタム開発のご相談&body=法人名：%0D%0A事業所数・担当者数：%0D%0A現在の管理方法：%0D%0Aご要望：%0D%0Aご担当者名：%0D%0Aご連絡先：" class="btn btn-lg" style="background:#fff;color:var(--g);font-weight:800;text-decoration:none">📧 無料ヒアリングを申し込む</a>
+    </div>
+    <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:20px">
+      <a href="https://gaiaarts.org/keikaku/" style="display:inline-flex;align-items:center;gap:6px;padding:11px 22px;font-size:14px;font-weight:700;border-radius:12px;background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.4);text-decoration:none" target="_blank">📱 デモを見る</a>
+    </div>
+    <div style="margin:0 auto 20px;max-width:600px;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);border-radius:14px;padding:16px 20px;text-align:center">
+      <div style="font-weight:800;font-size:14px;margin-bottom:8px">🤝 OEM・再販・士業提携のご相談</div>
+      <p style="font-size:13px;opacity:.9;margin-bottom:12px">相談支援の開業支援・顧問サービスに御社ブランドのシステムを組み込めます。開業コンサル・社労士・IT事業者の方はこちら。</p>
+      <a href="mailto:kenji.kys@gmail.com?subject=計画相談支援システム OEM・再販のご相談&body=法人名：%0D%0Aご相談内容（OEM展開・再販・士業提携等）：%0D%0Aご担当者名：%0D%0Aご連絡先：" style="display:inline-flex;align-items:center;gap:6px;padding:10px 20px;background:#fff;color:#7c3aed;border-radius:10px;font-weight:700;font-size:13px;text-decoration:none">📬 OEM・再販・士業提携を相談する（無料）</a>
+    </div>
+    <div style="font-size:13px;opacity:.8;margin-top:8px">✓ 相談無料　✓ 売り込みなし　✓ 開発者が直接対応　✓ ソースコード納品で御社の資産に</div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div style="margin-bottom:14px;padding-bottom:14px;border-bottom:1px solid #1e293b;font-size:12px;color:#64748b;line-height:1.9">
+      <strong style="color:#94a3b8;font-size:13px">運営者情報</strong><br>
+      屋号：GaiaArtsCreation　／　代表：片桐健治<br>
+      お問合せ：<a href="mailto:info@gaiaarts.org" style="color:#c4b5fd">info@gaiaarts.org</a>
+    </div>
+    <p>© 2026 OWL計画相談支援Manager | GaiaArtsCreation</p>
+  </div>
+</footer>
+<style>@media(max-width:640px){.scale-plans{grid-template-columns:1fr!important}}</style>
+</body>
+</html>
