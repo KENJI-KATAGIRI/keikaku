@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from typing import Optional
 import sqlite3, hashlib, secrets, os, time, hmac, base64, json
 from datetime import datetime, timedelta, date
-from jose import jwt
+import jwt
 try:
     from openai import OpenAI as OpenAIClient
 except ImportError:
@@ -14,18 +14,94 @@ except ImportError:
 
 from database import get_db, init_db
 
-SECRET_KEY = "keikaku-manager-secret-2025"
+SECRET_KEY = os.environ.get("SECRET_KEY") or (_ for _ in ()).throw(ValueError("SECRET_KEY env var not set"))
 ALGORITHM  = "HS256"
-BASE_PATH  = "/keikaku"
-WELFARE_SSO_SECRET = os.environ.get("WELFARE_SSO_SECRET", "")
 
-app = FastAPI(root_path=BASE_PATH)
-app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+# ── ブルートフォース対策 ──────────────────────────────────────────
+import time as _time
+from collections import defaultdict as _defaultdict
+_login_attempts: dict = _defaultdict(list)
+_LIMIT_COUNT = 10
+_LIMIT_WINDOW = 600
+
+def _get_real_ip(request) -> str:
+    return (request.headers.get("X-Real-IP")
+            or request.headers.get("X-Forwarded-For", "").split(",")[0].strip()
+            or getattr(request.client, "host", "unknown"))
+
+def _check_rate_limit(ip: str):
+    now = _time.time()
+    _login_attempts[ip] = [t for t in _login_attempts[ip] if now - t < _LIMIT_WINDOW]
+    if len(_login_attempts[ip]) >= _LIMIT_COUNT:
+        raise HTTPException(429, "Too many login attempts. Try again in 10 minutes.")
+    _login_attempts[ip].append(now)
+
+BASE_PATH  = "/keikaku"
+WELFARE_SSO_SECRET = os.environ.get("WELFARE_SSO_SECRET") or (_ for _ in ()).throw(ValueError("WELFARE_SSO_SECRET env var not set"))
+
+app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None, root_path=BASE_PATH)
+
+# ── nginx経由以外の直接ポートアクセス遮断 ─────────────────────────
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response as _StarResponse
+
+class _LocalhostOnlyMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        client_host = getattr(request.client, "host", "")
+        if client_host not in ("127.0.0.1", "::1", "localhost"):
+            return _StarResponse("Forbidden", status_code=403)
+        return await call_next(request)
+
+app.add_middleware(_LocalhostOnlyMiddleware)
+
+# ── セキュリティレスポンスヘッダー ────────────────────────────────
+class _SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "SAMEORIGIN"
+        response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+        response.headers["X-XSS-Protection"] = "1; mode=block"
+        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Server"] = ""
+        return response
+
+app.add_middleware(_SecurityHeadersMiddleware)
+
+
+app.add_middleware(CORSMiddleware,
+    allow_origins=[
+        "https://gaiaarts.org", "https://www.gaiaarts.org",
+        "https://meet.gaiaarts.org", "https://life-energy-coaching.net",
+    ],
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH"],
+    allow_headers=["Authorization", "Content-Type"])
 init_db()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
-def hash_pw(pw, salt):
-    return hashlib.sha256((pw+salt).encode()).hexdigest()
+
+# ── パスワードハッシュ (bcrypt + SHA256後方互換) ──────────────────
+import hashlib as _hashlib
+try:
+    import bcrypt as _bcrypt
+    _BCRYPT_AVAILABLE = True
+except ImportError:
+    _BCRYPT_AVAILABLE = False
+
+def hash_pw(pw: str, salt: str = "") -> str:
+    if _BCRYPT_AVAILABLE:
+        return _bcrypt.hashpw(pw.encode(), _bcrypt.gensalt(rounds=12)).decode()
+    return _hashlib.sha256((pw + salt).encode()).hexdigest()
+
+def verify_pw(pw: str, stored_hash: str, salt: str = "") -> bool:
+    if _BCRYPT_AVAILABLE and (stored_hash.startswith("$2b$") or stored_hash.startswith("$2a$")):
+        try:
+            return _bcrypt.checkpw(pw.encode(), stored_hash.encode())
+        except Exception:
+            return False
+    return _hashlib.sha256((pw + salt).encode()).hexdigest() == stored_hash
+
 
 def make_token(oid, username):
     return jwt.encode({"sub":str(oid),"username":username,"exp":datetime.utcnow()+timedelta(days=30)}, SECRET_KEY, algorithm=ALGORITHM)
@@ -163,7 +239,12 @@ class HandoverIn(BaseModel):
     priority: Optional[str] = "normal"
 
 @app.post("/api/register")
-def register(body: RegisterIn):
+def register(body: RegisterIn, request: Request):
+    _check_rate_limit(_get_real_ip(request))
+    if len(body.password) < 8 or len(body.password) > 128:
+        raise HTTPException(400, 'パスワードは8〜128文字で設定してください')
+    if len(body.username) < 1 or len(body.username) > 100:
+        raise HTTPException(400, 'ユーザー名は1〜100文字で設定してください')
     db = get_db()
     try:
         salt = secrets.token_hex(16)
@@ -180,12 +261,14 @@ def register(body: RegisterIn):
         db.close()
 
 @app.post("/api/login")
-def login(body: LoginIn):
+def login(body: LoginIn, request: Request):
+
+    _check_rate_limit(_get_real_ip(request))
     db = get_db()
     try:
         row = db.execute("SELECT * FROM offices WHERE username=?", (body.username,)).fetchone()
         if not row: raise HTTPException(401, "invalid credentials")
-        if hash_pw(body.password, row["pw_salt"]) != row["pw_hash"]: raise HTTPException(401, "invalid credentials")
+        if not verify_pw(body.password, row["pw_hash"], row["pw_salt"]): raise HTTPException(401, "invalid credentials")
         return {"token": make_token(row["id"], body.username), "office_name": row["office_name"]}
     finally:
         db.close()
@@ -636,7 +719,7 @@ async def gen_assessment_doc(client_id: int, request: Request):
         ci=dict(client); ai=dict(assess) if assess else {}
         name=ci.get("name",""); ls=ai.get("living_situation",""); st=ai.get("strengths",""); ch=ai.get("challenges","")
         prompt=f"利用者: {name} のアセスメントシートを作成してください。生活状況: {ls}, 強み: {st}, 課題: {ch}"
-        oai=OpenAIClient(api_key=api_key)
+        oai=OpenAIClient(api_key=api_key, timeout=30.0)
         resp=oai.chat.completions.create(model="gpt-4o-mini",messages=[{"role":"user","content":prompt}])
         return {"text":resp.choices[0].message.content}
     finally:
@@ -655,7 +738,7 @@ async def gen_plan_doc(client_id: int, request: Request):
         ci=dict(client); pi=dict(plan) if plan else {}
         name=ci.get("name",""); lg=pi.get("long_term_goal",""); sg=pi.get("short_term_goal","")
         prompt=f"利用者: {name} のサービス等利用計画書を作成してください。長期目標: {lg}, 短期目標: {sg}"
-        oai=OpenAIClient(api_key=api_key)
+        oai=OpenAIClient(api_key=api_key, timeout=30.0)
         resp=oai.chat.completions.create(model="gpt-4o-mini",messages=[{"role":"user","content":prompt}])
         return {"text":resp.choices[0].message.content}
     finally:
@@ -674,7 +757,7 @@ async def gen_monitoring_doc(client_id: int, request: Request):
         ci=dict(client); ri=dict(report) if report else {}
         name=ci.get("name",""); iss=ri.get("issues","")
         prompt=f"利用者: {name} のモニタリング報告書を作成してください。課題: {iss}"
-        oai=OpenAIClient(api_key=api_key)
+        oai=OpenAIClient(api_key=api_key, timeout=30.0)
         resp=oai.chat.completions.create(model="gpt-4o-mini",messages=[{"role":"user","content":prompt}])
         return {"text":resp.choices[0].message.content}
     finally:
@@ -692,7 +775,7 @@ async def voice_transcribe(request: Request):
         tmp.write(await audio_file.read())
         tmp_path = tmp.name
     try:
-        oai = OpenAIClient(api_key=api_key)
+        oai = OpenAIClient(api_key=api_key, timeout=30.0)
         with open(tmp_path, "rb") as f:
             result = oai.audio.transcriptions.create(model="whisper-1", file=f)
         return {"text": result.text}
@@ -900,7 +983,10 @@ async def nicemeet_sso_url(
     return {"url": url}
 
 @app.get("/api/demo-login")
-async def demo_login():
+async def demo_login(key: str = ""):  # secured
+    import hmac as _hm_dl
+    if not key or not _hm_dl.compare_digest(key, ADMIN_KEY):
+        raise HTTPException(403, "forbidden")
     db = get_db()
     username = "demo_keikaku"
     row = db.execute("SELECT * FROM offices WHERE username=?", (username,)).fetchone()
@@ -1725,7 +1811,7 @@ ADMIN_KEY = os.environ.get("ADMIN_KEY", "keikaku-admin-2025")
 
 @app.get("/api/admin/offices")
 def admin_offices(request: Request, admin_key: str = ""):
-    if admin_key != ADMIN_KEY:
+    if not __import__("hmac").compare_digest(admin_key or "", ADMIN_KEY):
         raise HTTPException(status_code=403, detail="Forbidden")
     db = get_db()
     offices = db.execute("SELECT * FROM offices ORDER BY created_at DESC").fetchall()
