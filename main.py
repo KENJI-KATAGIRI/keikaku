@@ -686,7 +686,7 @@ async def voice_transcribe(request: Request):
     api_key = os.environ.get("OPENAI_API_KEY")
     if not api_key or OpenAIClient is None: raise HTTPException(400, "OpenAI API key not configured")
     form = await request.form()
-    audio_file = form.get("file")
+    audio_file = form.get("audio")
     if not audio_file: raise HTTPException(400, "No audio file provided")
     with tempfile.NamedTemporaryFile(suffix=".webm", delete=False) as tmp:
         tmp.write(await audio_file.read())
@@ -715,16 +715,6 @@ def activate_office(body: ActivateIn):
     finally:
         db.close()
 
-@app.get("/api/admin/offices")
-def list_offices(admin_key: str = ""):
-    if admin_key != "keikaku-admin-2025": raise HTTPException(403)
-    db = get_db()
-    try:
-        rows = db.execute("SELECT id,username,office_name,email,plan,subscription_status,trial_end,created_at FROM offices ORDER BY created_at DESC").fetchall()
-        return [dict(r) for r in rows]
-    finally:
-        db.close()
-
 @app.get("/")
 def index():
     with open("static/index.html", encoding="utf-8") as f:
@@ -747,6 +737,7 @@ async def lp_custom_page():
 
 import smtplib
 from email.mime.text import MIMEText
+from email.header import Header
 GMAIL_USER = os.environ.get("GMAIL_USER", "")
 GMAIL_PASS = os.environ.get("GMAIL_PASS", "")
 BUG_REPORT_TO = os.environ.get("BUG_REPORT_TO", "kenji.kys@gmail.com")
@@ -758,7 +749,7 @@ def send_gmail(to: str, subject: str, body: str):
     msg = MIMEText(body, "plain", "utf-8")
     msg["From"] = f"計画相談支援Manager <{GMAIL_USER}>"
     msg["To"] = to
-    msg["Subject"] = subject
+    msg["Subject"] = Header(subject, "utf-8").encode()
     ctx = ssl.create_default_context()
     with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=ctx) as s:
         s.login(GMAIL_USER, GMAIL_PASS)
