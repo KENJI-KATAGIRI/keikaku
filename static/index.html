@@ -98,8 +98,9 @@ label{font-size:13px;font-weight:600;color:#374151;margin-bottom:4px;display:blo
     <div style="display:flex;align-items:center;gap:8px">
       <img src="/keikaku/static/owl_logo.png" style="height:30px;width:auto;flex-shrink:0" alt="OWL">
       <div>
-        <div style="font-weight:700;font-size:15px;color:#111827" id="topOfficeName">事業所名</div>
-        <div style="font-size:11px;color:#6b7280" id="topDate"></div>
+        <div style="font-weight:800;font-size:13px;color:#7c3aed;letter-spacing:-0.3px">OWL計画相談支援Manager</div>
+        <div style="font-weight:600;font-size:12px;color:#374151" id="topOfficeName">事業所名</div>
+        <div style="font-size:10px;color:#6b7280" id="topDate"></div>
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:8px">
@@ -2101,9 +2102,10 @@ async function vcOpenUrl(){
   var recType=encodeURIComponent(document.getElementById('vcRecordType').value||'');
   var memName=encodeURIComponent(document.getElementById('vcMemberName').value||'');
   var extra=(recType?'&recordType='+recType:'')+(memName?'&memberName='+memName:'');
+  var winName='nm_'+room.replace(/[^a-zA-Z0-9]/g,'_');
   var r=await api('/api/nicemeet-sso-url?room='+encodeURIComponent(room)+(extra?'&'+extra.slice(1):''));
-  if(r&&r.url)window.open(r.url,'_blank');
-  else window.open(vcMakeUrl(room,true)+extra,'_blank');
+  if(r&&r.url)window.open(r.url,winName);
+  else window.open(vcMakeUrl(room,true)+extra,winName);
 }
 async function openRecordsDashboard(){
   var r=await api('/api/nicemeet-sso-url?dest=/booking/dashboard');
