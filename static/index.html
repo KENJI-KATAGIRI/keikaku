@@ -641,6 +641,8 @@ let clientsList = [];
 let monitoringAlerts = {};
 let currentMonTab = "overdue";
 
+function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');}
+function jsa(s){return JSON.stringify(String(s)).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function api(path, method="GET", body=null) {
   const opts = { method, headers: { "Content-Type":"application/json", "Authorization":"Bearer "+token } };
   if (body) opts.body = JSON.stringify(body);
@@ -1041,7 +1043,7 @@ async function loadKkHospitalizationPage() {
   const clients = await api('/api/clients').catch(()=>[]);
   const clientSel = document.getElementById('hosp-client');
   const filterSel = document.getElementById('hosp-filter-client');
-  const opts = clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  const opts = clients.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
   clientSel.innerHTML = '<option value="">選択してください</option>' + opts;
   filterSel.innerHTML = '<option value="">全クライアント</option>' + opts;
   // Show kasan eligibility banner
@@ -1180,7 +1182,7 @@ async function loadKkSignaturesPage() {
   const clients = await api('/api/clients').catch(()=>[]);
   const clientSel = document.getElementById('kk-sig-client');
   const filterSel = document.getElementById('kk-sig-filter-client');
-  const opts = clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  const opts = clients.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
   clientSel.innerHTML = '<option value="">選択してください</option>' + opts;
   filterSel.innerHTML = '<option value="">全クライアント</option>' + opts;
   filterKkSignatures();
@@ -1393,7 +1395,7 @@ let genoActiveTab = 'genogram';
 async function loadGenogramPage() {
   const clients = await api('/api/clients').catch(()=>[]);
   const sel = document.getElementById('geno-client-sel');
-  if(sel) sel.innerHTML = '<option value="">クライアントを選択</option>' + clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  if(sel) sel.innerHTML = '<option value="">クライアントを選択</option>' + clients.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
 }
 
 function switchGenoTab(tab) {
@@ -1669,7 +1671,7 @@ function printEcomap() {
 // ===== 帳票PDF出力（keikaku） =====
 async function loadKkFormsPage() {
   const clients = await api('/api/clients').catch(()=>[]);
-  const opts = '<option value="">選択してください</option>' + clients.map(c=>`<option value="${c.id}">${c.name}</option>`).join('');
+  const opts = '<option value="">選択してください</option>' + clients.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join('');
   ['form-client-plan','form-client-mon'].forEach(id => {
     const el = document.getElementById(id);
     if(el) el.innerHTML = opts;
