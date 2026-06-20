@@ -1291,6 +1291,35 @@ async function saveKkBillingSettings() {
   if(st) { st.textContent='✅ 保存しました'; st.className='text-xs mt-1 text-green-600'; setTimeout(()=>st.textContent='',3000); }
 }
 
+async function kkRunMatchingCheck() {
+  const year = document.getElementById('kk-billing-year')?.value;
+  const month = document.getElementById('kk-billing-month')?.value;
+  if (!year || !month) { alert('年月を選択してください'); return; }
+  const s = await api('/api/billing/settings').catch(()=>({}));
+  if (!s || !s.gas_webhook_url) { alert('設定ページでGASウェブアプリURLを登録してください'); return; }
+  const btn = event.target; btn.textContent = '⏳ チェック中...'; btn.disabled = true;
+  try {
+    const res = await fetch(s.gas_webhook_url, {
+      method: 'POST',
+      body: JSON.stringify({ type: 'check_matching', year: parseInt(year), month: parseInt(month), office_name: '' }),
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await res.json();
+    if (data.ok) {
+      const r = data.result;
+      if (r.error) { alert('エラー: ' + r.error); return; }
+      alert(`【突合チェック完了】${r.year}年${r.month}月
+
+対象: ${r.member_count}名
+✅ 問題なし: ${r.ok_count}名
+❌ 要確認: ${r.ng_count}名（${r.missing_days}日分の相談記録なし）
+
+スプレッドシートの「${r.sheet_name}」シートで詳細を確認してください。`);
+    } else { alert('GASエラー: ' + (data.error || '不明')); }
+  } catch(e) { alert('通信エラー: ' + e.message); }
+  finally { btn.textContent = '🔍 突合チェック'; btn.disabled = false; }
+}
+
 function kkDownloadKokuhoCsv(year, month) {
   const yr = year || document.getElementById('kk-billing-year')?.value;
   const mo = month || document.getElementById('kk-billing-month')?.value;
@@ -1962,6 +1991,7 @@ async function generateAiReport(){
           <button onclick="saveKkBilling()" class="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 transition text-sm">💾 請求確定・保存</button>
           <button onclick="kkDownloadKokuhoCsv()" class="bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700 transition text-sm">📥 国保連CSV（ShiftJIS）</button>
           <button onclick="kkOpenBillingInvoice()" class="bg-amber-600 text-white px-5 py-2 rounded-lg hover:bg-amber-700 transition text-sm">🖨️ 利用者負担金請求書</button>
+          <button onclick="kkRunMatchingCheck()" class="bg-teal-600 text-white px-5 py-2 rounded-lg hover:bg-teal-700 transition text-sm">🔍 突合チェック</button>
         </div>
       </div>
     </div>

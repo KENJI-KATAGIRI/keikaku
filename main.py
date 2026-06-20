@@ -1669,7 +1669,7 @@ def billing_csv_kk(request: Request, year: int, month: int, token: Optional[str]
 def get_billing_settings_kk(request: Request):
     oid = current_office(request)
     db = get_db()
-    row = db.execute("SELECT jigyosho_no, pref_no, service_code_plan, service_code_monitoring, tanka_unit FROM offices WHERE id=?", (oid,)).fetchone()
+    row = db.execute("SELECT jigyosho_no, pref_no, service_code_plan, service_code_monitoring, tanka_unit, gas_webhook_url, office_name FROM offices WHERE id=?", (oid,)).fetchone()
     db.close()
     return dict(row) if row else {}
 
