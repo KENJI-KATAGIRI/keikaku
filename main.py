@@ -1665,6 +1665,134 @@ def billing_csv_kk(request: Request, year: int, month: int, token: Optional[str]
     )
 
 
+@app.get("/api/billing/settings")
+def get_billing_settings_kk(request: Request):
+    oid = current_office(request)
+    db = get_db()
+    row = db.execute("SELECT jigyosho_no, pref_no, service_code_plan, service_code_monitoring, tanka_unit FROM offices WHERE id=?", (oid,)).fetchone()
+    db.close()
+    return dict(row) if row else {}
+
+@app.put("/api/billing/settings")
+async def update_billing_settings_kk(request: Request):
+    oid = current_office(request)
+    body = await request.json()
+    db = get_db()
+    db.execute("""UPDATE offices SET jigyosho_no=?, pref_no=?, service_code_plan=?, service_code_monitoring=?, tanka_unit=?
+        WHERE id=?""", (
+        body.get("jigyosho_no", ""), body.get("pref_no", ""),
+        body.get("service_code_plan", "431011"),
+        body.get("service_code_monitoring", "431021"),
+        float(body.get("tanka_unit", 10.00)), oid))
+    db.commit(); db.close()
+    return {"ok": True}
+
+@app.get("/api/billing/csv/kokuhoren")
+def billing_csv_kokuhoren_kk(request: Request, year: int, month: int, token: Optional[str] = None):
+    """国保連提出用CSV（HA/HB形式、ShiftJIS/CRLF）"""
+    import io as _io
+    from fastapi.responses import StreamingResponse as _SR
+    oid = current_office_query(request, token)
+    db = get_db()
+    office = db.execute("SELECT * FROM offices WHERE id=?", (oid,)).fetchone()
+    if not office or not office["jigyosho_no"]:
+        db.close(); raise HTTPException(400, "事業所番号が未設定です。請求設定から登録してください。")
+    billing_ym = f"{year:04d}{month:02d}"
+    pref_no = (office["pref_no"] or "00").zfill(2)
+    jigyosho_no = str(office["jigyosho_no"]).zfill(10)
+    tanka = office["tanka_unit"] or 1140
+    svc_type = "43"
+    code_plan = office["service_code_plan"] or "431011"
+    code_mon = office["service_code_monitoring"] or "431021"
+    rows = db.execute("""SELECT br.*, c.name as client_name, c.jukyusha_no, c.futan_jogen, c.kana
+        FROM billing_records br JOIN clients c ON c.id=br.client_id
+        WHERE br.office_id=? AND br.billing_year=? AND br.billing_month=?
+        ORDER BY c.kana""", (oid, year, month)).fetchall()
+    kasan_list = db.execute("SELECT * FROM kasan_records WHERE office_id=? AND is_active=1", (oid,)).fetchall()
+    db.close()
+    kasan_names = {k["kasan_name"] for k in kasan_list}
+    hb_lines = []; hb_count = 0; total_units = 0; total_amount = 0
+    for r in rows:
+        if not r["jukyusha_no"]: continue
+        jno = str(r["jukyusha_no"]).zfill(10)
+        if r["plan_count"] > 0:
+            ku = r["plan_count"] * 1629; ka = int(ku * tanka / 100)
+            futan = min(r["futan_jogen"] or 0, ka)
+            hb_lines.append(f"HB,{billing_ym}01,02,{pref_no},{jigyosho_no},{jno},{r['client_name']},{billing_ym},{svc_type},{code_plan},1629,{r['plan_count']},1,{ku},{ka},0,{futan},0")
+            hb_count += 1; total_units += ku; total_amount += ka
+        if r["monitoring_count"] > 0:
+            ku = r["monitoring_count"] * 1357; ka = int(ku * tanka / 100)
+            futan = min(r["futan_jogen"] or 0, ka)
+            hb_lines.append(f"HB,{billing_ym}01,02,{pref_no},{jigyosho_no},{jno},{r['client_name']},{billing_ym},{svc_type},{code_mon},1357,{r['monitoring_count']},1,{ku},{ka},0,{futan},0")
+            hb_count += 1; total_units += ku; total_amount += ka
+        if "初回加算" in kasan_names and r["plan_count"] > 0:
+            ku = 300; ka = int(ku * tanka / 100)
+            hb_lines.append(f"HB,{billing_ym}01,02,{pref_no},{jigyosho_no},{jno},{r['client_name']},{billing_ym},{svc_type},431071,300,1,1,{ku},{ka},0,0,0")
+            hb_count += 1; total_units += ku; total_amount += ka
+    ha = f"HA,{billing_ym}01,02,{pref_no},{jigyosho_no},{office['office_name']},{billing_ym},{hb_count:06d}"
+    ft = f"FT,{hb_count:06d},{total_units:07d},{total_amount:09d}"
+    content = "\r\n".join([ha] + hb_lines + [ft]) + "\r\n"
+    try: encoded = content.encode("cp932")
+    except UnicodeEncodeError: encoded = content.encode("cp932", errors="replace")
+    fname = f"keikaku_{jigyosho_no}_{billing_ym}.csv"
+    return _SR(_io.BytesIO(encoded), media_type="application/octet-stream",
+        headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+@app.get("/api/billing/invoice/{year}/{month}", response_class=HTMLResponse)
+def billing_invoice_kk(year: int, month: int, request: Request):
+    """利用者負担金請求書（印刷用HTML）"""
+    from fastapi.responses import HTMLResponse as _HR
+    oid = current_office(request)
+    db = get_db()
+    office = db.execute("SELECT * FROM offices WHERE id=?", (oid,)).fetchone()
+    tanka = office["tanka_unit"] or 1140
+    rows = db.execute("""SELECT br.*, c.name as client_name, c.futan_jogen
+        FROM billing_records br JOIN clients c ON c.id=br.client_id
+        WHERE br.office_id=? AND br.billing_year=? AND br.billing_month=?
+        ORDER BY c.kana""", (oid, year, month)).fetchall()
+    db.close()
+    next_m = month + 1 if month < 12 else 1; next_y = year if month < 12 else year + 1
+    today = datetime.now().strftime("%Y年%m月%d日")
+    pages = ""
+    for r in rows:
+        if r["plan_count"] == 0 and r["monitoring_count"] == 0: continue
+        total_yen = r["total_yen"]; futan = min(r["futan_jogen"] or 0, total_yen)
+        svc_label = "サービス利用支援費" if r["plan_count"] > 0 else "継続サービス利用支援費"
+        pages += f"""<div style="page-break-after:always;padding:20px;font-family:'MS Mincho','游明朝',serif;font-size:11pt">
+<h2 style="text-align:center;font-size:16pt;margin-bottom:20px">{year}年{month}月分　利用者負担金請求書</h2>
+<table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+  <tr><td style="width:30%;font-weight:bold;padding:6px;border:1px solid #000">宛先</td><td style="padding:6px;border:1px solid #000"><strong>{r['client_name']}</strong>　様</td></tr>
+  <tr><td style="font-weight:bold;padding:6px;border:1px solid #000">請求事業所</td><td style="padding:6px;border:1px solid #000">{office['office_name']}</td></tr>
+  <tr><td style="font-weight:bold;padding:6px;border:1px solid #000">サービス種別</td><td style="padding:6px;border:1px solid #000">計画相談支援（{svc_label}）</td></tr>
+  <tr><td style="font-weight:bold;padding:6px;border:1px solid #000">対象期間</td><td style="padding:6px;border:1px solid #000">{year}年{month}月</td></tr>
+  <tr><td style="font-weight:bold;padding:6px;border:1px solid #000">計画作成回数</td><td style="padding:6px;border:1px solid #000">{r['plan_count']}回</td></tr>
+  <tr><td style="font-weight:bold;padding:6px;border:1px solid #000">モニタリング回数</td><td style="padding:6px;border:1px solid #000">{r['monitoring_count']}回</td></tr>
+</table>
+<table style="width:100%;border-collapse:collapse;margin-bottom:16px">
+  <thead><tr style="background:#f0f0f0"><th style="padding:6px;border:1px solid #000;text-align:left">項目</th><th style="padding:6px;border:1px solid #000;text-align:right">金額</th></tr></thead>
+  <tbody>
+    <tr><td style="padding:6px;border:1px solid #000">基本費</td><td style="padding:6px;border:1px solid #000;text-align:right">{int(r['base_units']*tanka/100):,}円</td></tr>
+    <tr><td style="padding:6px;border:1px solid #000">加算費</td><td style="padding:6px;border:1px solid #000;text-align:right">{int(r['kasan_units']*tanka/100):,}円</td></tr>
+    <tr style="font-weight:bold"><td style="padding:6px;border:1px solid #000">給付費合計</td><td style="padding:6px;border:1px solid #000;text-align:right">{total_yen:,}円</td></tr>
+    <tr style="font-weight:bold;background:#e8f4ff"><td style="padding:8px;border:2px solid #000;font-size:14pt">ご請求金額（利用者負担額）</td><td style="padding:8px;border:2px solid #000;text-align:right;font-size:14pt">{futan:,}円</td></tr>
+  </tbody>
+</table>
+<div style="margin-top:12px;font-size:10pt">お支払い期限：{next_y}年{next_m}月25日　／　作成日：{today}</div>
+<div style="margin-top:16px;text-align:right;font-size:10pt">以上よろしくお願いいたします。<br>{office['office_name']}</div>
+</div>"""
+    html = f"""<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8">
+<title>利用者負担金請求書 {year}年{month}月</title>
+<style>body{{{{font-family:'MS Mincho','游明朝',serif}}}}@media print{{{{@page{{{{margin:15mm}}}}.no-print{{{{display:none}}}}}}}}</style>
+</head><body>
+<div class="no-print" style="padding:12px">
+  <button onclick="window.print()" style="padding:8px 20px;background:#059669;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px">🖨️ 全員分を印刷</button>
+</div>
+{pages or '<p style="padding:20px;color:#666">対象データがありません</p>'}
+</body></html>"""
+    return _HR(html)
+
+
+
 
 # ===== 帳票生成API (keikaku) =====
 from fastapi.responses import HTMLResponse, JSONResponse

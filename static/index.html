@@ -1266,6 +1266,47 @@ async function kkDeleteSignature(id) {
 // ===== 国保連請求（keikaku） =====
 let kkBillingCalcData = null;
 
+async function loadKkBillingSettings() {
+  const s = await api('/api/billing/settings').catch(()=>({}));
+  if(!s) return;
+  const f = id => document.getElementById(id);
+  if(f('kk-bs-jigyosho-no')) f('kk-bs-jigyosho-no').value = s.jigyosho_no||'';
+  if(f('kk-bs-pref-no')) f('kk-bs-pref-no').value = s.pref_no||'';
+  if(f('kk-bs-code-plan')) f('kk-bs-code-plan').value = s.service_code_plan||'431011';
+  if(f('kk-bs-code-mon')) f('kk-bs-code-mon').value = s.service_code_monitoring||'431021';
+  if(f('kk-bs-tanka-unit')) f('kk-bs-tanka-unit').value = s.tanka_unit||1140;
+}
+
+async function saveKkBillingSettings() {
+  const f = id => document.getElementById(id);
+  const body = {
+    jigyosho_no: f('kk-bs-jigyosho-no').value.trim(),
+    pref_no: f('kk-bs-pref-no').value.trim(),
+    service_code_plan: f('kk-bs-code-plan').value.trim(),
+    service_code_monitoring: f('kk-bs-code-mon').value.trim(),
+    tanka_unit: parseFloat(f('kk-bs-tanka-unit').value)||1140,
+  };
+  await api('/api/billing/settings', 'PUT', body);
+  const st = document.getElementById('kk-bs-save-status');
+  if(st) { st.textContent='✅ 保存しました'; st.className='text-xs mt-1 text-green-600'; setTimeout(()=>st.textContent='',3000); }
+}
+
+function kkDownloadKokuhoCsv(year, month) {
+  const yr = year || document.getElementById('kk-billing-year')?.value;
+  const mo = month || document.getElementById('kk-billing-month')?.value;
+  if(!yr||!mo) { alert('年月を選択してください'); return; }
+  const a = document.createElement('a');
+  a.href = `/keikaku/api/billing/csv/kokuhoren?year=${yr}&month=${mo}&token=${token}`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+}
+
+function kkOpenBillingInvoice(year, month) {
+  const yr = year || document.getElementById('kk-billing-year')?.value;
+  const mo = month || document.getElementById('kk-billing-month')?.value;
+  if(!yr||!mo) { alert('年月を選択してください'); return; }
+  window.open(`/keikaku/api/billing/invoice/${yr}/${mo}?token=${token}`, '_blank');
+}
+
 function loadKkBillingPage() {
   const now = new Date();
   const yearSel = document.getElementById('kk-billing-year');
@@ -1285,6 +1326,7 @@ function loadKkBillingPage() {
     }
   }
   loadKkBillingHistory();
+  loadKkBillingSettings();
 }
 
 async function calcKkBilling() {
@@ -1364,7 +1406,8 @@ async function loadKkBillingHistory() {
       <td class="px-3 py-2 text-gray-400 text-xs">${r.created_at||''}</td>
       <td class="px-3 py-2 flex gap-2">
         <button onclick="showKkBillingDetail(${r.billing_year},${r.billing_month})" class="text-blue-500 hover:text-blue-700 text-xs">明細</button>
-        <button onclick="kkDownloadBillingCsv(${r.billing_year},${r.billing_month})" class="text-green-500 hover:text-green-700 text-xs">CSV↓</button>
+        <button onclick="kkDownloadKokuhoCsv(${r.billing_year},${r.billing_month})" class="text-indigo-500 hover:text-indigo-700 text-xs">国保連CSV</button>
+        <button onclick="window.open('/keikaku/api/billing/invoice/'+${r.billing_year}+'/'+${r.billing_month}+'?token='+token,'_blank')" class="text-amber-500 hover:text-amber-700 text-xs">請求書↗</button>
       </td>
     </tr>`).join('')}</tbody>
   </table>`;
@@ -1847,6 +1890,27 @@ async function generateAiReport(){
 
   <!-- 国保連請求ページ（keikaku） -->
   <div id="page-billing" class="page">
+    <!-- 請求設定 -->
+    <div class="bg-white rounded-xl shadow p-4 mb-4">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-lg font-bold text-gray-800">⚙️ 請求設定</h2>
+        <button onclick="saveKkBillingSettings()" class="bg-purple-600 text-white px-4 py-1.5 rounded-lg text-sm hover:bg-purple-700">保存</button>
+      </div>
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-3 text-sm">
+        <div><label class="text-xs text-gray-500">事業所番号（10桁）</label>
+          <input id="kk-bs-jigyosho-no" placeholder="1234567890" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+        <div><label class="text-xs text-gray-500">都道府県番号（2桁）</label>
+          <input id="kk-bs-pref-no" placeholder="13" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+        <div><label class="text-xs text-gray-500">サービスコード（計画作成）</label>
+          <input id="kk-bs-code-plan" placeholder="431011" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+        <div><label class="text-xs text-gray-500">サービスコード（モニタリング）</label>
+          <input id="kk-bs-code-mon" placeholder="431021" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+        <div><label class="text-xs text-gray-500">地域単価（単位あたり円×100）</label>
+          <input id="kk-bs-tanka-unit" type="number" placeholder="1140" class="w-full border border-gray-200 rounded-lg px-3 py-2 mt-1 text-sm"></div>
+      </div>
+      <p class="text-xs text-gray-400 mt-2">※ コード例: 計画作成=431011、継続=431021。単価: 1140=11.40円/単位</p>
+      <div id="kk-bs-save-status" class="text-xs mt-1"></div>
+    </div>
     <div class="bg-white rounded-xl shadow p-4 mb-4">
       <h2 class="text-lg font-bold text-gray-800 mb-3">🧾 月次請求計算（計画相談支援給付費）</h2>
       <div class="flex flex-wrap gap-3 mb-4 items-end">
@@ -1894,8 +1958,10 @@ async function generateAiReport(){
             <tfoot id="kk-billing-calc-tfoot" class="bg-purple-100 text-purple-800 font-bold"></tfoot>
           </table>
         </div>
-        <div class="flex gap-3">
+        <div class="flex flex-wrap gap-3">
           <button onclick="saveKkBilling()" class="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 transition text-sm">💾 請求確定・保存</button>
+          <button onclick="kkDownloadKokuhoCsv()" class="bg-indigo-600 text-white px-5 py-2 rounded-lg hover:bg-indigo-700 transition text-sm">📥 国保連CSV（ShiftJIS）</button>
+          <button onclick="kkOpenBillingInvoice()" class="bg-amber-600 text-white px-5 py-2 rounded-lg hover:bg-amber-700 transition text-sm">🖨️ 利用者負担金請求書</button>
         </div>
       </div>
     </div>

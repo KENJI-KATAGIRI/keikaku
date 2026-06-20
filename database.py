@@ -317,4 +317,14 @@ def init_db():
     );
     """)
     conn.commit()
+    # migrations
+    for col, ddl in [
+        ("service_code_plan", "TEXT DEFAULT '431011'"),
+        ("service_code_monitoring", "TEXT DEFAULT '431021'"),
+    ]:
+        try:
+            conn.execute(f"ALTER TABLE offices ADD COLUMN {col} {ddl}")
+            conn.commit()
+        except Exception:
+            pass
     conn.close()
