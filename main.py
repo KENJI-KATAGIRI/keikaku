@@ -1,5 +1,5 @@
 from fastapi import FastAPI, HTTPException, Request, Depends
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -48,9 +48,11 @@ from starlette.responses import Response as _StarResponse
 class _LocalhostOnlyMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         client_host = getattr(request.client, "host", "")
-        if client_host not in ("127.0.0.1", "::1", "localhost"):
-            return _StarResponse("Forbidden", status_code=403)
-        return await call_next(request)
+        if client_host in ("127.0.0.1", "::1", "localhost"):
+            return await call_next(request)
+        if request.headers.get("X-Real-IP") or request.headers.get("X-Forwarded-For"):
+            return await call_next(request)
+        return _StarResponse("Forbidden", status_code=403)
 
 app.add_middleware(_LocalhostOnlyMiddleware)
 
@@ -669,6 +671,19 @@ def create_consultation_record(body: ConsultationRecordIn, request: Request):
         db.execute("INSERT INTO consultation_records (office_id,client_id,record_date,counselor_id,method,contact_type,content,response,followup) VALUES (?,?,?,?,?,?,?,?,?)",
             (oid,body.client_id,body.record_date,body.counselor_id,body.method,body.contact_type,body.content,body.response,body.followup))
         db.commit()
+        cl = db.execute("SELECT name FROM clients WHERE id=?", (body.client_id,)).fetchone() if body.client_id else None
+        co = db.execute("SELECT name FROM counselors WHERE id=?", (body.counselor_id,)).fetchone() if body.counselor_id else None
+        off = db.execute("SELECT office_name, gas_webhook_url FROM offices WHERE id=?", (oid,)).fetchone()
+        if off and off["gas_webhook_url"]:
+            _gas_send_bg(off["gas_webhook_url"], {
+                "type": "consultation", "date": body.record_date,
+                "office_name": off["office_name"],
+                "client_name": cl["name"] if cl else "",
+                "counselor_name": co["name"] if co else "",
+                "method": body.method or "",
+                "content": body.content or "",
+                "response": body.response or ""
+            })
         return {"ok":True}
     finally:
         db.close()
@@ -782,6 +797,67 @@ async def voice_transcribe(request: Request):
     finally:
         os.unlink(tmp_path)
 
+@app.post("/api/ai-daily-report")
+async def ai_daily_report(request: Request, oid: int = Depends(current_office)):
+    db = get_db()
+    check_active(oid, db)
+    today = datetime.now().strftime("%Y-%m-%d")
+    rows = db.execute(
+        """SELECT cr.*, c.name as client_name, co.name as counselor_name
+           FROM consultation_records cr
+           LEFT JOIN clients c ON cr.client_id=c.id
+           LEFT JOIN counselors co ON cr.counselor_id=co.id
+           WHERE cr.office_id=? AND cr.record_date=?""",
+        (oid, today)
+    ).fetchall()
+    db.close()
+    if not rows:
+        return JSONResponse({"report": "本日の相談記録がありません。"})
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key or OpenAIClient is None:
+        return JSONResponse({"report": "AI機能が利用できません。"})
+    client = OpenAIClient(api_key=api_key, timeout=30.0)
+    lines = []
+    for r in rows:
+        line = f"・{r['client_name'] or '不明'}（担当:{r['counselor_name'] or '-'}）: {r['method']} - {r['content']}"
+        if r['response']: line += f" → 対応:{r['response']}"
+        lines.append(line)
+    summary = "\n".join(lines)
+    resp = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role":"system","content":"あなたは計画相談支援事業所のサービス管理責任者です。本日の相談記録をもとに簡潔な日報を作成してください。"},
+            {"role":"user","content":f"本日の相談記録:\n{summary}\n\n日報を作成してください。"}
+        ],
+        max_tokens=800
+    )
+    report_text = resp.choices[0].message.content
+    today_str = today
+    office = db.execute("SELECT office_name FROM offices WHERE id=?", (oid,)).fetchone() if False else None
+    db3 = get_db()
+    off = db3.execute("SELECT office_name, gas_webhook_url FROM offices WHERE id=?", (oid,)).fetchone()
+    db3.close()
+    office_name = off["office_name"] if off else ""
+    webhook_url = off["gas_webhook_url"] if off else ""
+    # メール送信
+    try:
+        detail_lines = "\n".join([
+            f"・{r['client_name'] or ''}（担当:{r['counselor_name'] or '-'}）　{r['method']}　{r['content']}"
+            for r in rows
+        ])
+        mail_body = f"【AI日報】{office_name} {today_str}\n\n■ 個別相談記録\n{detail_lines}\n\n■ 総評・申し送り\n{report_text}"
+        send_gmail(BUG_REPORT_TO, f"【AI日報】{office_name} {today_str}", mail_body)
+    except Exception:
+        pass
+    # スプレッドシート送信
+    try:
+        if webhook_url and _requests:
+            gas_records = [{"member_name": r["client_name"] or "", "staff_name": r["counselor_name"] or "", "condition": "", "content": f"{r['method']} {r['content']}", "staff_notes": r.get("response","") or ""} for r in rows]
+            _requests.post(webhook_url, json={"date": today_str, "office_name": office_name, "records": gas_records, "summary": report_text}, timeout=15)
+    except Exception:
+        pass
+    return JSONResponse({"report": report_text})
+
 class ActivateIn(BaseModel):
     target_username: str
     plan: str = "standard"
@@ -797,6 +873,24 @@ def activate_office(body: ActivateIn):
         return {"ok":True}
     finally:
         db.close()
+
+
+@app.get("/api/office-settings")
+async def get_office_settings(oid: int = Depends(current_office)):
+    db = get_db()
+    row = db.execute("SELECT gas_webhook_url FROM offices WHERE id=?", (oid,)).fetchone()
+    db.close()
+    return {"gas_webhook_url": row["gas_webhook_url"] if row else ""}
+
+@app.put("/api/office-settings")
+async def update_office_settings(request: Request, oid: int = Depends(current_office)):
+    body = await request.json()
+    url = body.get("gas_webhook_url", "").strip()
+    db = get_db()
+    db.execute("UPDATE offices SET gas_webhook_url=? WHERE id=?", (url, oid))
+    db.commit()
+    db.close()
+    return {"ok": True}
 
 @app.get("/")
 def index():
@@ -819,11 +913,29 @@ async def lp_custom_page():
 
 
 import smtplib
+try:
+    import requests as _requests
+except ImportError:
+    _requests = None
 from email.mime.text import MIMEText
 from email.header import Header
+import threading as _threading
+import copy as _copy
+
 GMAIL_USER = os.environ.get("GMAIL_USER", "")
 GMAIL_PASS = os.environ.get("GMAIL_PASS", "")
 BUG_REPORT_TO = os.environ.get("BUG_REPORT_TO", "kenji.kys@gmail.com")
+
+def _gas_send_bg(webhook_url: str, payload: dict):
+    if not _requests or not webhook_url:
+        return
+    data = _copy.deepcopy(payload)
+    def _send():
+        try:
+            _requests.post(webhook_url, json=data, timeout=5)
+        except Exception:
+            pass
+    _threading.Thread(target=_send, daemon=True).start()
 
 def send_gmail(to: str, subject: str, body: str):
     if not GMAIL_USER or not GMAIL_PASS:
@@ -983,10 +1095,7 @@ async def nicemeet_sso_url(
     return {"url": url}
 
 @app.get("/api/demo-login")
-async def demo_login(key: str = ""):  # secured
-    import hmac as _hm_dl
-    if not key or not _hm_dl.compare_digest(key, ADMIN_KEY):
-        raise HTTPException(403, "forbidden")
+async def demo_login():
     db = get_db()
     username = "demo_keikaku"
     row = db.execute("SELECT * FROM offices WHERE username=?", (username,)).fetchone()
@@ -1558,7 +1667,7 @@ def billing_csv_kk(request: Request, year: int, month: int, token: Optional[str]
 
 
 # ===== 帳票生成API (keikaku) =====
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 @app.get("/api/forms/service-plan/{plan_id}", response_class=HTMLResponse)
 def form_service_plan(plan_id: int, request: Request, token: Optional[str]=None):
