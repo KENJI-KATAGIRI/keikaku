@@ -500,6 +500,14 @@ label{font-size:13px;font-weight:600;color:#374151;margin-bottom:4px;display:blo
       <div class="col-span-2"><label class="text-sm font-medium">備考</label><textarea id="c-notes" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
     </div>
     <input type="hidden" id="c-id" value="">
+<div style="text-align:center;margin-bottom:12px">
+  <label for="kclientPhotoInput" style="cursor:pointer;display:inline-block;position:relative">
+    <img id="kclientPhotoPreview" src="" style="width:160px;height:160px;border-radius:16px;object-fit:cover;border:2px solid #14b8a6;background:#e2e8f0;display:block">
+    <span style="position:absolute;bottom:0;right:0;background:#14b8a6;color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px">📷</span>
+  </label>
+  <input type="file" id="kclientPhotoInput" accept="image/*" style="display:none" onchange="uploadKClientPhoto(this)">
+  <div id="kclientPhotoStatus" style="font-size:10px;color:#9ca3af;margin-top:3px"></div>
+</div>
     <div class="flex gap-3 mt-4">
       <button onclick="saveClient()" class="flex-1 bg-purple-600 text-white py-2 rounded-lg hover:bg-purple-700">保存</button>
       <button onclick="closeModal('modal-client')" class="flex-1 bg-gray-200 py-2 rounded-lg hover:bg-gray-300">キャンセル</button>
@@ -519,6 +527,14 @@ label{font-size:13px;font-weight:600;color:#374151;margin-bottom:4px;display:blo
       <div class="flex items-center gap-2"><input id="co-chief" type="checkbox"><label class="text-sm font-medium">管理者</label></div>
     </div>
     <input type="hidden" id="co-id" value="">
+<div style="text-align:center;margin-bottom:12px">
+  <label for="counselorPhotoInput" style="cursor:pointer;display:inline-block;position:relative">
+    <img id="counselorPhotoPreview" src="" style="width:160px;height:160px;border-radius:16px;object-fit:cover;border:2px solid #14b8a6;background:#e2e8f0;display:block">
+    <span style="position:absolute;bottom:0;right:0;background:#14b8a6;color:white;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;font-size:10px">📷</span>
+  </label>
+  <input type="file" id="counselorPhotoInput" accept="image/*" style="display:none" onchange="uploadCounselorPhoto(this)">
+  <div id="counselorPhotoStatus" style="font-size:10px;color:#9ca3af;margin-top:3px"></div>
+</div>
     <div class="flex gap-3 mt-4">
       <button onclick="saveCounselor()" class="flex-1 bg-purple-600 text-white py-2 rounded-lg">保存</button>
       <button onclick="closeModal('modal-counselor')" class="flex-1 bg-gray-200 py-2 rounded-lg">キャンセル</button>
@@ -2258,19 +2274,20 @@ async function vcOpenUrl(){
   var memName=encodeURIComponent(document.getElementById('vcMemberName').value||'');
   var extra=(recType?'&recordType='+recType:'')+(memName?'&memberName='+memName:'');
   var winName='nm_'+room.replace(/[^a-zA-Z0-9]/g,'_');
+  var win=window.open('',winName);
   var r=await api('/api/nicemeet-sso-url?room='+encodeURIComponent(room)+(extra?'&'+extra.slice(1):''));
-  if(r&&r.url)window.open(r.url,winName);
-  else window.open(vcMakeUrl(room,true)+extra,winName);
+  if(win){if(r&&r.url)win.location=r.url;else win.location=vcMakeUrl(room,true)+extra;}
 }
 async function openRecordsDashboard(){
+  var win=window.open('','_blank');
   var r=await api('/api/nicemeet-sso-url?dest=/booking/dashboard');
-  if(r&&r.url)window.open(r.url,'_blank');
+  if(r&&r.url&&win)win.location=r.url;
 }
 async function vcOpenFaceRec(){
   closeVcModal();
+  var win=window.open('','_blank');
   var r=await api('/api/nicemeet-sso-url');
-  if(r&&r.url)window.open(r.url,'_blank');
-  else window.open('https://meet.gaiaarts.org/record?system=keikaku','_blank');
+  if(win){if(r&&r.url)win.location=r.url;else win.location='https://meet.gaiaarts.org/record?system=keikaku';}
 }
 
 let crCurrentId=null,crDebTimer=null;
@@ -2422,6 +2439,18 @@ async function saveWebhookUrl(){
   try{await api('/office-settings','PUT',{gas_webhook_url:url.trim()});if(st){st.textContent='✅ 保存しました';st.style.color='#065f46';}}catch(e){if(st){st.textContent='❌ 保存失敗';st.style.color='#991b1b';}}
 }
 
+
+// ── photo upload functions ──
+
+async function compressImage(file,maxW,maxH,quality){maxW=maxW||1200;maxH=maxH||1200;quality=quality||0.82;return new Promise(function(resolve){var reader=new FileReader();reader.onload=function(e){var img=new Image();img.onload=function(){var w=img.width,h=img.height;if(w>maxW||h>maxH){var ratio=Math.min(maxW/w,maxH/h);w=Math.round(w*ratio);h=Math.round(h*ratio);}var canvas=document.createElement('canvas');canvas.width=w;canvas.height=h;canvas.getContext('2d').drawImage(img,0,0,w,h);canvas.toBlob(function(blob){resolve(blob);},'image/jpeg',quality);};img.src=e.target.result;};reader.readAsDataURL(file);});}
+
+async function uploadKClientPhoto(input){const eid=document.getElementById('c-id').value;if(!eid){document.getElementById('kclientPhotoStatus').textContent='先に基本情報を保存してください';input.value='';return;}document.getElementById('kclientPhotoStatus').textContent='アップロード中...';const _blob=await compressImage(input.files[0]);const fd=new FormData();fd.append('file',_blob,'photo.jpg');try{const r=await fetch(`/keikaku/api/clients/${eid}/photo`,{method:'PUT',body:fd,headers:{'Authorization':'Bearer '+token}});if(r.ok){const d=await r.json();document.getElementById('kclientPhotoPreview').src=d.photo_url;document.getElementById('kclientPhotoStatus').textContent='✅ 更新しました';}else{document.getElementById('kclientPhotoStatus').textContent='❌ エラー'+r.status;}}catch(e){document.getElementById('kclientPhotoStatus').textContent='❌ エラー';}input.value='';}
+
+(function(){const _o=openClientModal;openClientModal=function(){_o.apply(this,arguments);const _id=document.getElementById('c-id');const _img=document.getElementById('kclientPhotoPreview');const _st=document.getElementById('kclientPhotoStatus');const _data=arguments[0];if(_img)_img.src=(_data&&_data.photo_url)?_data.photo_url:'';if(_st)_st.textContent='';};})();
+
+async function uploadCounselorPhoto(input){const eid=document.getElementById('co-id').value;if(!eid){document.getElementById('counselorPhotoStatus').textContent='先に基本情報を保存してください';input.value='';return;}document.getElementById('counselorPhotoStatus').textContent='アップロード中...';const _blob=await compressImage(input.files[0]);const fd=new FormData();fd.append('file',_blob,'photo.jpg');try{const r=await fetch(`/keikaku/api/counselors/${eid}/photo`,{method:'PUT',body:fd,headers:{'Authorization':'Bearer '+token}});if(r.ok){const d=await r.json();document.getElementById('counselorPhotoPreview').src=d.photo_url;document.getElementById('counselorPhotoStatus').textContent='✅ 更新しました';}else{document.getElementById('counselorPhotoStatus').textContent='❌ エラー'+r.status;}}catch(e){document.getElementById('counselorPhotoStatus').textContent='❌ エラー';}input.value='';}
+
+(function(){const _o=openCounselorModal;openCounselorModal=function(){_o.apply(this,arguments);const _id=document.getElementById('co-id');const _img=document.getElementById('counselorPhotoPreview');const _st=document.getElementById('counselorPhotoStatus');const _data=arguments[0];if(_img)_img.src=(_data&&_data.photo_url)?_data.photo_url:'';if(_st)_st.textContent='';};})();
 </script>
 </body>
 </html>

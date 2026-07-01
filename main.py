@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request, Depends
+from fastapi import FastAPI, HTTPException, Request, Depends, UploadFile, File
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,6 +13,13 @@ except ImportError:
     OpenAIClient = None
 
 from database import get_db, init_db
+
+# ── photo upload setup ────────────────────────────────────────
+UPLOAD_DIR = os.path.join(os.path.dirname(__file__), "static", "uploads")
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+ALLOWED_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+MAX_SIZE = 10 * 1024 * 1024  # 10MB
+
 
 SECRET_KEY = os.environ.get("SECRET_KEY") or (_ for _ in ()).throw(ValueError("SECRET_KEY env var not set"))
 ALGORITHM  = "HS256"
@@ -894,8 +901,8 @@ async def update_office_settings(request: Request, oid: int = Depends(current_of
 
 @app.get("/")
 def index():
-    with open("static/index.html", encoding="utf-8") as f:
-        return HTMLResponse(f.read())
+    with open("static/index.html", encoding="utf-8") as f: c2=f.read()
+    return HTMLResponse(c2, headers={"Cache-Control":"no-store"})
 
 
 
@@ -1799,126 +1806,303 @@ from fastapi.responses import HTMLResponse, JSONResponse
 
 @app.get("/api/forms/service-plan/{plan_id}", response_class=HTMLResponse)
 def form_service_plan(plan_id: int, request: Request, token: Optional[str]=None):
-    """サービス等利用計画書"""
+    """サービス等利用計画書（名古屋市フォーマット）"""
     oid = current_office_query(request, token)
     db = get_db()
     office = db.execute("SELECT * FROM offices WHERE id=?", (oid,)).fetchone()
     if office: office = dict(office)
-    plan = db.execute("SELECT sp.*, c.name as client_name, c.kana, c.birthdate, c.gender, c.disability_type, c.disability_level, c.jukyusha_no, c.address, co.name as counselor_name FROM service_plans sp JOIN clients c ON c.id=sp.client_id LEFT JOIN counselors co ON co.id=c.counselor_id WHERE sp.id=? AND sp.office_id=?", (plan_id, oid)).fetchone()
+    plan = db.execute("""SELECT sp.*, c.name as client_name, c.kana, c.birthdate, c.gender,
+        c.disability_type, c.disability_level, c.jukyusha_no, c.jukyusha_valid_to,
+        c.address, c.phone, c.family_name, c.family_phone, c.main_service, c.notes as client_notes,
+        co.name as counselor_name
+        FROM service_plans sp
+        JOIN clients c ON c.id=sp.client_id
+        LEFT JOIN counselors co ON co.id=c.counselor_id
+        WHERE sp.id=? AND sp.office_id=?""", (plan_id, oid)).fetchone()
     if not plan: raise HTTPException(404)
     plan = dict(plan)
     from datetime import date
     today = date.today().strftime("%Y年%m月%d日")
-    disability_map = {"psychiatric":"精神障害","intellectual":"知的障害","physical":"身体障害","developmental":"発達障害","other":"その他"}
-    services_text = plan["services"] or ""
+    disability_map = {{"psychiatric":"精神障害","intellectual":"知的障害","physical":"身体障害","developmental":"発達障害","other":"その他"}}
+    dis_label = disability_map.get(plan.get('disability_type',''), plan.get('disability_type',''))
+    def chk(val, label):
+        c = "☑" if val else "☐"
+        return f"{c}&nbsp;{label}"
+    dis_checks = "　".join([
+        chk(plan.get('disability_type')=='physical','身体'),
+        chk(plan.get('disability_type')=='intellectual','知的'),
+        chk(plan.get('disability_type')=='psychiatric','精神'),
+        chk(plan.get('disability_type')=='developmental','発達'),
+        chk(plan.get('disability_type')=='other','難病等その他'),
+    ])
+    # 週間計画表（6:00〜翌4:00 × 月〜祝）
+    time_slots = []
+    for h in range(6, 24):
+        time_slots.append(f"{h:02d}:00")
+    for h in range(0, 5):
+        time_slots.append(f"翌{h:02d}:00")
+    days = ["月","火","水","木","金","土","日","祝"]
+    week_rows = ""
+    for t in time_slots:
+        week_rows += f"<tr><td style='background:#f5f5f5;font-size:8pt;white-space:nowrap;padding:1px 3px'>{t}</td>"
+        for _ in days:
+            week_rows += "<td style='min-width:28px;padding:2px'>&nbsp;</td>"
+        week_rows += "</tr>"
+    services_text = plan.get("services","") or ""
     html = f"""<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
-<title>サービス等利用計画書 - {plan['client_name']}</title>
+<title>サービス等利用計画書 - {{plan['client_name']}}</title>
 <style>
-  body{{font-family:'游明朝','Hiragino Mincho ProN',serif;padding:15mm;font-size:10pt;color:#000;margin:0}}
-  h1{{text-align:center;font-size:15pt;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:16px}}
-  h2{{font-size:11pt;background:#e8e8e8;padding:3px 8px;border-left:4px solid #555;margin:14px 0 6px}}
-  table{{width:100%;border-collapse:collapse;margin-bottom:10px;font-size:9.5pt}}
-  th,td{{border:1px solid #666;padding:5px 8px;vertical-align:top}}
-  th{{background:#f0f0f0;font-weight:bold;width:22%}}
-  .goal-box{{border:1px solid #666;padding:8px;min-height:45px;margin-bottom:10px}}
-  @media print{{button{{display:none}}}}
-  button{{padding:8px 20px;background:#7c3aed;color:white;border:none;border-radius:4px;cursor:pointer;margin-bottom:12px}}
+  body{{font-family:'游明朝','Hiragino Mincho ProN',serif;font-size:9.5pt;color:#000;margin:0}}
+  .page{{padding:12mm 15mm;box-sizing:border-box}}
+  h1{{text-align:center;font-size:13pt;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:12px}}
+  h2{{font-size:10pt;background:#ddd;padding:2px 6px;margin:10px 0 4px;border-left:3px solid #555}}
+  h3{{font-size:9.5pt;margin:8px 0 4px}}
+  table{{width:100%;border-collapse:collapse;margin-bottom:8px;font-size:9pt}}
+  th,td{{border:1px solid #555;padding:3px 6px;vertical-align:top}}
+  th{{background:#f0f0f0;font-weight:bold}}
+  .box{{border:1px solid #555;padding:6px;min-height:36px;margin-bottom:6px;white-space:pre-wrap}}
+  .sign-row{{display:flex;gap:20px;margin-top:16px;font-size:9pt}}
+  .sign-block{{flex:1;text-align:center}}
+  .sign-line{{display:inline-block;border-bottom:1px solid #000;min-width:90px}}
+  @media print{{button{{display:none}}.page-break{{page-break-before:always}}}}
+  button{{padding:6px 18px;background:#7c3aed;color:white;border:none;border-radius:4px;cursor:pointer;margin:8px 0;font-size:10pt}}
 </style></head><body>
+<div class="page">
 <button onclick="window.print()">🖨️ 印刷 / PDF保存</button>
-<h1>サービス等利用計画書</h1>
-<p style="text-align:right;font-size:9pt">作成日：{plan['created_date'] or today}　　版：第{plan['version'] or 1}版</p>
+
+<!-- ===== 勘案事項整理票 ===== -->
+<h1>勘案事項整理票</h1>
+<p style="text-align:right;font-size:8pt">作成日：{{plan['created_date'] or today}}</p>
 <table>
-  <tr><th>利用者氏名</th><td><strong>{plan['client_name']}</strong>（{plan.get('kana','')}&nbsp;）</td>
-      <th>生年月日</th><td>{plan.get('birthdate','')}</td></tr>
-  <tr><th>障害種別</th><td>{disability_map.get(plan.get('disability_type',''),'')}</td>
-      <th>障害支援区分</th><td>{plan.get('disability_level','')}</td></tr>
-  <tr><th>受給者番号</th><td>{plan.get('jukyusha_no','')}</td>
-      <th>相談支援専門員</th><td>{plan.get('counselor_name','')}</td></tr>
-  <tr><th>住所</th><td colspan="3">{plan.get('address','')}</td></tr>
+  <tr><th style="width:22%">利用者氏名</th><td><strong>{{plan['client_name']}}</strong>（{{plan.get('kana','')}}）</td>
+      <th style="width:18%">生年月日</th><td>{{plan.get('birthdate','')}}</td></tr>
+  <tr><th>住所</th><td colspan="3">{{plan.get('address','')}}</td></tr>
+  <tr><th>障害種別</th><td colspan="3">{dis_checks}</td></tr>
+  <tr><th>手帳種類・等級</th><td>&nbsp;</td>
+      <th>障害支援区分</th><td>{{plan.get('disability_level','')}}</td></tr>
+  <tr><th>主な介護者</th><td>{{plan.get('family_name','')}}&nbsp;（連絡先：{{plan.get('family_phone','')}}）</td>
+      <th>居住環境</th><td>&nbsp;</td></tr>
+  <tr><th>受給状況（サービス種類・量）</th><td colspan="3">{{plan.get('main_service','')}}　　　受給者証番号：{{plan.get('jukyusha_no','')}}　有効期限：{{plan.get('jukyusha_valid_to','')}}</td></tr>
+  <tr><th>その他特記事項</th><td colspan="3">{{plan.get('client_notes','') or ''}}</td></tr>
 </table>
-<h2>総合的な支援の方針</h2>
-<div class="goal-box">{plan.get('support_policy','') or ''}</div>
-<h2>長期目標</h2>
-<div class="goal-box">{plan.get('long_term_goal','') or ''}</div>
-<h2>短期目標</h2>
-<div class="goal-box">{plan.get('short_term_goal','') or ''}</div>
-<h2>週間計画・利用サービス</h2>
-<div class="goal-box" style="min-height:80px">{plan.get('weekly_schedule','') or ''}</div>
+
+<div class="sign-row" style="margin-top:30px">
+  <div class="sign-block">相談支援事業所名：{{office['office_name'] if office else ''}}</div>
+  <div class="sign-block">担当者：{{plan.get('counselor_name','')}}</div>
+  <div class="sign-block">利用者同意&nbsp;署名又は捺印：<span class="sign-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
+</div>
+
+<!-- ===== サービス等利用計画書 ===== -->
+<div class="page-break"></div>
+<h1>サービス等利用計画・障害児支援利用計画</h1>
+<p style="text-align:right;font-size:8pt">作成日：{{plan['created_date'] or today}}　　版：第{{plan['version'] or 1}}版</p>
+<table>
+  <tr><th style="width:22%">利用者氏名</th><td><strong>{{plan['client_name']}}</strong>（{{plan.get('kana','')}}）</td>
+      <th style="width:18%">生年月日</th><td>{{plan.get('birthdate','')}}</td></tr>
+  <tr><th>受給者証番号</th><td>{{plan.get('jukyusha_no','')}}</td>
+      <th>相談支援専門員</th><td>{{plan.get('counselor_name','')}}</td></tr>
+  <tr><th>相談支援事業所名</th><td colspan="3">{{office['office_name'] if office else ''}}</td></tr>
+</table>
+
+<h2>利用者及び家族の生活に対する意向（意向・希望等）</h2>
+<div class="box">{{plan.get('notes','') or ''}}</div>
+
+<h2>総合的な援助の方針</h2>
+<div class="box">{{plan.get('support_policy','') or ''}}</div>
+
+<table>
+  <tr><th style="width:50%">長期目標</th><th>短期目標</th></tr>
+  <tr><td style="min-height:50px"><div style="min-height:50px">{{plan.get('long_term_goal','') or ''}}</div></td>
+      <td><div style="min-height:50px">{{plan.get('short_term_goal','') or ''}}</div></td></tr>
+</table>
+
 <h2>利用するサービス一覧</h2>
-<div class="goal-box">{services_text}</div>
-<h2>特記事項</h2>
-<div class="goal-box">{plan.get('notes','') or ''}</div>
-<table style="margin-top:20px">
+<table>
   <tr>
-    <td style="border:none;text-align:center">事業所：{office['office_name'] if office else ''}</td>
-    <td style="border:none;text-align:center">作成者署名：<span style="display:inline-block;border-bottom:1px solid #000;min-width:80px">&nbsp;</span></td>
-    <td style="border:none;text-align:center">利用者同意署名：<span style="display:inline-block;border-bottom:1px solid #000;min-width:80px">&nbsp;</span></td>
-    <td style="border:none;text-align:center">承認日：{plan.get('approved_date','')}</td>
+    <th style="width:20%">支援目標・達成時期</th>
+    <th style="width:15%">福祉サービス等種類</th>
+    <th style="width:25%">サービス内容</th>
+    <th style="width:18%">提供事業者（担当者）</th>
+    <th style="width:12%">頻度</th>
+    <th style="width:10%">期間</th>
   </tr>
+  <tr><td style="min-height:30px" colspan="6">{services_text}</td></tr>
+  <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>
+  <tr><td>&nbsp;</td><td></td><td></td><td></td><td></td><td></td></tr>
 </table>
+
+<h2>特記事項（地域の方々との連携・その他の社会資源等）</h2>
+<div class="box" style="min-height:30px">&nbsp;</div>
+
+<div class="sign-row">
+  <div class="sign-block">相談支援事業所名：{{office['office_name'] if office else ''}}</div>
+  <div class="sign-block">担当者：{{plan.get('counselor_name','')}}</div>
+  <div class="sign-block">計画作成日：{{plan['created_date'] or today}}</div>
+  <div class="sign-block">承認日：{{plan.get('approved_date','')}}</div>
+</div>
+<div class="sign-row" style="margin-top:12px">
+  <div class="sign-block">作成者署名：<span class="sign-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
+  <div class="sign-block">利用者同意&nbsp;署名又は捺印：<span class="sign-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
+</div>
+
+<!-- ===== 週間計画表 ===== -->
+<div class="page-break"></div>
+<h1>週間計画表</h1>
+<p style="font-size:8pt;margin-bottom:6px">利用者氏名：<strong>{{plan['client_name']}}</strong>　　作成日：{{plan['created_date'] or today}}</p>
+<table style="font-size:8.5pt">
+  <thead>
+    <tr style="background:#ddd">
+      <th style="width:45px">時間</th>
+      {"".join(f"<th style='text-align:center'>{d}</th>" for d in {repr(days)[1:-1]})}
+    </tr>
+  </thead>
+  <tbody>
+    {week_rows}
+  </tbody>
+</table>
+<p style="font-size:8pt;margin-top:6px">※週間スケジュール備考：{{plan.get('weekly_schedule','') or '（未入力）'}}</p>
+
+<div class="sign-row" style="margin-top:16px">
+  <div class="sign-block">相談支援事業所名：{{office['office_name'] if office else ''}}</div>
+  <div class="sign-block">利用者同意&nbsp;署名又は捺印：<span class="sign-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
+  <div class="sign-block">日付：<span class="sign-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
+</div>
+
+</div>
 </body></html>"""
     db.close()
     return html
 
 @app.get("/api/forms/monitoring/{report_id}", response_class=HTMLResponse)
 def form_monitoring(report_id: int, request: Request, token: Optional[str]=None):
-    """モニタリング報告書"""
+    """モニタリング報告書（名古屋市フォーマット）"""
     oid = current_office_query(request, token)
     db = get_db()
     office = db.execute("SELECT * FROM offices WHERE id=?", (oid,)).fetchone()
     if office: office = dict(office)
-    rep = db.execute("""SELECT mr.*, c.name as client_name, c.jukyusha_no, c.disability_type,
-        co.name as counselor_name FROM monitoring_reports mr
+    rep = db.execute("""SELECT mr.*, c.name as client_name, c.kana, c.birthdate,
+        c.jukyusha_no, c.disability_type, c.disability_level,
+        co.name as counselor_name
+        FROM monitoring_reports mr
         JOIN clients c ON c.id=mr.client_id
         LEFT JOIN counselors co ON co.id=mr.counselor_id
         WHERE mr.id=? AND mr.office_id=?""", (report_id, oid)).fetchone()
     if not rep: raise HTTPException(404)
     rep = dict(rep)
-    satisfaction_map = {"very_satisfied":"非常に満足","satisfied":"満足","neutral":"普通","unsatisfied":"不満","very_unsatisfied":"非常に不満"}
-    achievement_map = {"achieved":"達成","mostly":"ほぼ達成","partial":"一部達成","not":"未達成"}
+    # 最新サービス計画の援助方針を参照
+    latest_plan = db.execute("""SELECT support_policy, long_term_goal, short_term_goal, services
+        FROM service_plans WHERE client_id=? AND office_id=?
+        ORDER BY created_at DESC LIMIT 1""",
+        (rep['client_id'], oid)).fetchone()
+    latest_plan = dict(latest_plan) if latest_plan else {}
+    achievement_map = {{"achieved":"達成","mostly":"ほぼ達成","partial":"一部達成","not":"未達成"}}
+    ach = achievement_map.get(rep.get('goal_achievement',''), rep.get('goal_achievement','') or '　')
+    plan_change = rep.get('plan_change','') or ''
+    change_needed_yes = "☑" if plan_change and plan_change != '変更なし' else "☐"
+    change_needed_no  = "☐" if plan_change and plan_change != '変更なし' else "☑"
+    # サービス一覧テキストから行を生成（カンマ・改行区切りを行に）
+    svc_lines = [s.strip() for s in (rep.get('service_status','') or '').replace('\r','').split('\n') if s.strip()]
+    if not svc_lines:
+        svc_lines = ['', '', '']
+    svc_rows = ""
+    for line in (svc_lines + ['',''])[:max(len(svc_lines)+1, 3)]:
+        svc_rows += f"""<tr>
+          <td style="min-height:24px;padding:4px 6px">{line}</td>
+          <td style="padding:4px 6px">&nbsp;</td>
+          <td style="padding:4px 6px">&nbsp;</td>
+          <td style="text-align:center;padding:4px 6px">{ach if line == svc_lines[0] else '　'}</td>
+          <td style="text-align:center;padding:4px 6px">{"有&nbsp;・&nbsp;無" if line == svc_lines[0] else '　'}</td>
+        </tr>"""
     html = f"""<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
-<title>モニタリング報告書 - {rep['client_name']}</title>
+<title>モニタリング報告書 - {{rep['client_name']}}</title>
 <style>
-  body{{font-family:'游明朝','Hiragino Mincho ProN',serif;padding:15mm;font-size:10pt;color:#000;margin:0}}
-  h1{{text-align:center;font-size:15pt;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:16px}}
-  h2{{font-size:11pt;background:#e8e8e8;padding:3px 8px;border-left:4px solid #555;margin:14px 0 6px}}
-  table{{width:100%;border-collapse:collapse;margin-bottom:10px}}
-  th,td{{border:1px solid #666;padding:5px 8px;vertical-align:top}}
-  th{{background:#f0f0f0;font-weight:bold;width:28%}}
-  .content-box{{border:1px solid #666;padding:8px;min-height:40px;margin-bottom:10px}}
+  body{{font-family:'游明朝','Hiragino Mincho ProN',serif;font-size:9.5pt;color:#000;margin:0}}
+  .page{{padding:12mm 15mm;box-sizing:border-box}}
+  h1{{text-align:center;font-size:12pt;border-bottom:2px solid #000;padding-bottom:6px;margin-bottom:10px}}
+  h2{{font-size:9.5pt;background:#ddd;padding:2px 6px;margin:8px 0 3px;border-left:3px solid #555}}
+  table{{width:100%;border-collapse:collapse;margin-bottom:6px;font-size:9pt}}
+  th,td{{border:1px solid #555;padding:3px 6px;vertical-align:top}}
+  th{{background:#f0f0f0;font-weight:bold}}
+  .box{{border:1px solid #555;padding:6px;min-height:36px;margin-bottom:6px;white-space:pre-wrap}}
+  .sign-row{{display:flex;gap:16px;margin-top:12px;font-size:9pt;align-items:flex-end}}
+  .sign-block{{flex:1;text-align:center}}
+  .sign-line{{display:inline-block;border-bottom:1px solid #000;min-width:80px}}
   @media print{{button{{display:none}}}}
-  button{{padding:8px 20px;background:#7c3aed;color:white;border:none;border-radius:4px;cursor:pointer;margin-bottom:12px}}
+  button{{padding:6px 18px;background:#7c3aed;color:white;border:none;border-radius:4px;cursor:pointer;margin-bottom:10px;font-size:10pt}}
 </style></head><body>
+<div class="page">
 <button onclick="window.print()">🖨️ 印刷 / PDF保存</button>
-<h1>継続サービス利用支援（モニタリング）報告書</h1>
+<h1>モニタリング報告書<br><span style="font-size:10pt">（継続サービス利用支援・継続障害児支援利用援助）</span></h1>
+
 <table>
-  <tr><th>利用者氏名</th><td><strong>{rep['client_name']}</strong></td>
-      <th>受給者番号</th><td>{rep.get('jukyusha_no','')}</td></tr>
-  <tr><th>モニタリング実施日</th><td>{rep.get('monitor_date','')}</td>
-      <th>訪問日</th><td>{rep.get('visit_date','')}</td></tr>
-  <tr><th>相談支援専門員</th><td>{rep.get('counselor_name','')}</td>
-      <th>事業所</th><td>{office['office_name'] if office else ''}</td></tr>
+  <tr>
+    <th style="width:18%">氏名</th>
+    <td><strong>{{rep['client_name']}}</strong>（{{rep.get('kana','')}}）</td>
+    <th style="width:20%">生年月日（年齢）</th>
+    <td>{{rep.get('birthdate','')}}</td>
+  </tr>
+  <tr>
+    <th>障害福祉サービス受給者証番号</th>
+    <td>{{rep.get('jukyusha_no','')}}</td>
+    <th>利用者負担上限額</th>
+    <td>&nbsp;</td>
+  </tr>
+  <tr>
+    <th>モニタリング報告書作成日</th>
+    <td>{{rep.get('monitor_date','')}}</td>
+    <th>モニタリング実施日（訪問日）</th>
+    <td>{{rep.get('visit_date','')}}</td>
+  </tr>
 </table>
-<h2>目標達成度</h2>
+
+<h2>総合的な援助方針・全体の状況</h2>
+<div class="box">{{latest_plan.get('support_policy','') or rep.get('notes','') or ''}}</div>
+
+<h2>サービスの提供状況・支援目標の達成度</h2>
 <table>
-  <tr><th>目標達成状況</th><td>{achievement_map.get(rep.get('goal_achievement',''),'')}</td>
-      <th>本人満足度</th><td>{satisfaction_map.get(rep.get('satisfaction',''),'')}</td></tr>
+  <thead>
+    <tr style="background:#e8e8e8">
+      <th style="width:28%">①サービス種類<br>（福祉サービス等）</th>
+      <th style="width:28%">②内容・量<br>（提供状況）</th>
+      <th style="width:20%">③提供事業者<br>（担当者名）</th>
+      <th style="width:12%">支援目標の<br>達成度</th>
+      <th style="width:12%">変更の<br>必要</th>
+    </tr>
+  </thead>
+  <tbody>
+    {svc_rows}
+  </tbody>
 </table>
-<h2>サービス利用状況</h2>
-<div class="content-box">{rep.get('service_status','') or ''}</div>
-<h2>課題・問題点</h2>
-<div class="content-box">{rep.get('issues','') or ''}</div>
-<h2>計画変更の必要性</h2>
-<div class="content-box">{rep.get('plan_change','') or '変更なし'}</div>
-<h2>特記事項</h2>
-<div class="content-box">{rep.get('notes','') or ''}</div>
-<table style="margin-top:16px">
-  <tr><th>次回モニタリング予定日</th><td>{rep.get('next_monitoring','')}</td>
-      <th>市区町村提出</th><td>{'済' if rep.get('submitted_to_city') else '未'}</td></tr>
+
+<h2>利用者及び家族の生活に対する意向</h2>
+<div class="box" style="min-height:30px">&nbsp;</div>
+
+<h2>生活全般の解決すべき課題（ニーズ）</h2>
+<div class="box">{{rep.get('issues','') or ''}}</div>
+
+<h2>今後の課題・解決方法、留意事項</h2>
+<div class="box">{{plan_change or ''}}</div>
+
+<table style="margin-top:4px">
+  <tr>
+    <th style="width:22%">次回モニタリング予定日</th>
+    <td>{{rep.get('next_monitoring','')}}</td>
+    <th style="width:22%">市区町村提出</th>
+    <td>{{'済' if rep.get('submitted_to_city') else '未'}}</td>
+  </tr>
 </table>
-<div style="margin-top:24px;text-align:right">
-  作成者署名：<span style="display:inline-block;border-bottom:1px solid #000;min-width:100px">&nbsp;</span>&nbsp;&nbsp;
-  利用者確認署名：<span style="display:inline-block;border-bottom:1px solid #000;min-width:100px">&nbsp;</span>
+
+<div class="sign-row" style="margin-top:16px">
+  <div class="sign-block" style="text-align:left">
+    <div>相談支援事業所名：{{office['office_name'] if office else ''}}</div>
+    <div style="margin-top:4px">計画担当者（相談支援専門員）：{{rep.get('counselor_name','')}}</div>
+  </div>
+  <div style="flex:0 0 180px;text-align:center;border:1px solid #555;padding:8px">
+    <div style="font-size:8pt">利用者同意&nbsp;署名又は捺印</div>
+    <div style="min-height:40px">&nbsp;</div>
+    <div style="font-size:8pt">計画作成日：{{rep.get('monitor_date','')}}</div>
+  </div>
+</div>
 </div>
 </body></html>"""
     db.close()
@@ -2067,3 +2251,45 @@ def admin_offices(request: Request, admin_key: str = ""):
 def catch_all(path: str):
     with open("static/index.html", encoding="utf-8") as f:
         return HTMLResponse(f.read())
+
+# ── person photo endpoints ──────────────────────────────────
+
+@app.put("/api/clients/{cid}/photo")
+async def upload_client_photo(cid: int, file: UploadFile = File(...), oid: int = Depends(current_office)):
+    if file.content_type not in ALLOWED_TYPES:
+        raise HTTPException(400, "画像ファイルのみアップロードできます")
+    data = await file.read()
+    if len(data) > MAX_SIZE:
+        raise HTTPException(400, "10MB以下にしてください")
+    if not any(data[:len(m)] == m for m in (b'\xff\xd8\xff', b'\x89PNG', b'RIFF', b'GIF8', b'GIF9')):
+        raise HTTPException(400, "有効な画像ファイルではありません")
+    import base64 as _b64
+    photo_url = "data:image/jpeg;base64," + _b64.b64encode(data).decode()
+    db = get_db()
+    cur = db.execute("UPDATE clients SET photo_url=? WHERE id=? AND office_id=?", (photo_url, cid, oid))
+    if cur.rowcount == 0:
+        db.close()
+        raise HTTPException(404, "対象が見つかりません")
+    db.commit()
+    db.close()
+    return {"photo_url": photo_url}
+
+@app.put("/api/counselors/{cid2}/photo")
+async def upload_counselor_photo(cid2: int, file: UploadFile = File(...), oid: int = Depends(current_office)):
+    if file.content_type not in ALLOWED_TYPES:
+        raise HTTPException(400, "画像ファイルのみアップロードできます")
+    data = await file.read()
+    if len(data) > MAX_SIZE:
+        raise HTTPException(400, "10MB以下にしてください")
+    if not any(data[:len(m)] == m for m in (b'\xff\xd8\xff', b'\x89PNG', b'RIFF', b'GIF8', b'GIF9')):
+        raise HTTPException(400, "有効な画像ファイルではありません")
+    import base64 as _b64
+    photo_url = "data:image/jpeg;base64," + _b64.b64encode(data).decode()
+    db = get_db()
+    cur = db.execute("UPDATE counselors SET photo_url=? WHERE id=? AND office_id=?", (photo_url, cid2, oid))
+    if cur.rowcount == 0:
+        db.close()
+        raise HTTPException(404, "対象が見つかりません")
+    db.commit()
+    db.close()
+    return {"photo_url": photo_url}

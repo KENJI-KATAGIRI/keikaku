@@ -327,4 +327,12 @@ def init_db():
             conn.commit()
         except Exception:
             pass
+
+    # photo_url migration
+    for _tbl in ["clients", "counselors"]:
+        try:
+            conn.execute(f"ALTER TABLE {_tbl} ADD COLUMN photo_url TEXT DEFAULT ''")
+            conn.commit()
+        except Exception:
+            pass
     conn.close()
