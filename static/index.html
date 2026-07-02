@@ -950,11 +950,24 @@ function buildGridTable(){
     for(const d of _gridDays){
       const key="h"+h+"_"+d;
       const val=(_gridData.cells&&_gridData.cells[key])||"";
-      html+=`<td class="border border-gray-300 p-0" style="min-width:60px"><textarea class="grid-cell w-full text-xs p-1 resize-none" rows="2" data-key="${key}" style="border:none;min-height:36px;height:36px">${val.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</textarea></td>`;
+      html+=`<td class="border border-gray-300 p-0" style="min-width:60px"><textarea class="grid-cell w-full text-xs p-1 resize-none" data-key="${key}" style="border:none;min-height:58px;height:58px;padding-right:38px">${val.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</textarea></td>`;
     }
     html+="</tr>";
   }
   tbody.innerHTML=html;
+  // マイクボタン: hover/focus時のみ表示
+  setTimeout(function(){
+    tbody.querySelectorAll("div > button").forEach(function(btn){
+      btn.style.opacity="0";
+      btn.style.transition="opacity 0.15s";
+      var wrapper=btn.parentElement;
+      var ta=btn.previousElementSibling;
+      wrapper.addEventListener("mouseenter",function(){btn.style.opacity="1";});
+      wrapper.addEventListener("mouseleave",function(){if(document.activeElement!==ta)btn.style.opacity="0";});
+      ta.addEventListener("focus",function(){btn.style.opacity="1";});
+      ta.addEventListener("blur",function(){setTimeout(function(){if(document.activeElement!==btn)btn.style.opacity="0";},150);});
+    });
+  },80);
 }
 
 function saveGridEditor(){
