@@ -553,9 +553,10 @@ label{font-size:13px;font-weight:600;color:#374151;margin-bottom:4px;display:blo
       <div><label class="text-sm font-medium">訪問日</label><input id="mr-visit" type="date" class="w-full border rounded px-3 py-2 mt-1"></div>
       <div><label class="text-sm font-medium">目標達成度</label><select id="mr-achievement" class="w-full border rounded px-3 py-2 mt-1"><option value="achieved">達成</option><option value="partial" selected>一部達成</option><option value="not_achieved">未達成</option></select></div>
       <div><label class="text-sm font-medium">満足度</label><select id="mr-satisfaction" class="w-full border rounded px-3 py-2 mt-1"><option value="satisfied">満足</option><option value="normal" selected>普通</option><option value="unsatisfied">不満</option></select></div>
-      <div><label class="text-sm font-medium">サービス利用状況</label><textarea id="mr-status" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
-      <div><label class="text-sm font-medium">課題・問題点</label><textarea id="mr-issues" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
-      <div><label class="text-sm font-medium">計画変更</label><select id="mr-change" class="w-full border rounded px-3 py-2 mt-1"><option value="no_change" selected>変更なし</option><option value="minor_change">軽微な変更</option><option value="major_change">大幅変更</option></select></div>
+      <div><label class="text-sm font-medium">サービス利用状況（1行=1サービス）</label><textarea id="mr-status" class="w-full border rounded px-3 py-2 mt-1" rows="3" placeholder="例：就労継続支援B型　とびらぼ　月〜金 9:00〜15:00&#10;居宅介護　〇〇ヘルパー　週3回"></textarea></div>
+      <div><label class="text-sm font-medium">利用者及び家族の生活に対する意向</label><textarea id="mr-wishes" class="w-full border rounded px-3 py-2 mt-1" rows="2" placeholder="例：今の生活を続けていきたい。家族も現状に満足している。"></textarea></div>
+      <div><label class="text-sm font-medium">生活全般の解決すべき課題（ニーズ）</label><textarea id="mr-issues" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
+      <div><label class="text-sm font-medium">今後の課題・解決方法・留意事項</label><textarea id="mr-change" class="w-full border rounded px-3 py-2 mt-1" rows="2" placeholder="例：体調管理に留意しながら通所継続。担当者間での情報共有を強化する。"></textarea></div>
       <div><label class="text-sm font-medium">次回モニタリング予定日</label><input id="mr-next" type="date" class="w-full border rounded px-3 py-2 mt-1"></div>
       <div><label class="text-sm font-medium">備考</label><textarea id="mr-notes" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
     </div>
@@ -918,68 +919,44 @@ async function savePlan(){
   if(id)await api("/api/service-plans/"+id,"PUT",body);else await api("/api/service-plans","POST",body);
   closeModal("modal-plan");loadPlans();
 }
-async function loadMonReports(){const data=await api("/api/monitoring-reports").catch(e=>[]);const el=document.getElementById("monitoring-reports-list");if(!el)return;el.innerHTML=data.length===0?"<p class=text-gray-500>報告書未作成</p>":data.map(r=>"<div class=bg-white rounded-lg shadow p-4><div class=flex justify-between><div><span class=font-bold>"+r.client_name+"</span><span class=ml-2 text-gray-500 text-sm>"+r.monitor_date+"</span></div><span class=text-sm>担当: "+( r.counselor_name||"-")+"</span></div><div class=text-sm text-gray-600 mt-2>達成度: "+r.goal_achievement+" / 次回: "+( r.next_monitoring||"-")+"</div></div>").join("");}
-function openMonReportModal(){populateClientSelects();document.getElementById("mr-id").value="";document.getElementById("mr-date").value=new Date().toISOString().slice(0,10);["mr-status","mr-issues","mr-notes"].forEach(i=>document.getElementById(i).value="");openModal("modal-mon-report");}
-// ===== 週間計画グリッドエディタ =====
-let _gridData={overview:"",non_weekly:"",cells:{}};
-const _gridHours=[6,8,10,12,14,16,18,20,22,0,2,4];
-const _gridDays=["月","火","水","木","金","土","日・祝","活動"];
-
-function updateGridSummary(){
-  const cells=_gridData.cells||{};
-  const count=Object.values(cells).filter(v=>v&&v.trim()).length;
-  const ov=_gridData.overview||"";
-  const summary=ov?ov.slice(0,20)+(ov.length>20?"...":""):"";
-  document.getElementById("sp-grid-summary").textContent=count>0?(summary||"入力済み")+" ("+count+"セル入力済み)":"（グリッド未設定）";
+async function loadMonReports(){
+  const data=await api("/api/monitoring-reports").catch(e=>[]);
+  const el=document.getElementById("monitoring-reports-list");
+  if(!el)return;
+  if(data.length===0){el.innerHTML="<p class='text-gray-500'>報告書未作成</p>";return;}
+  el.innerHTML=data.map(r=>`<div class="bg-white rounded-lg shadow p-4">
+    <div class="flex justify-between items-center">
+      <div>
+        <span class="font-bold">${r.client_name}</span>
+        <span class="ml-2 text-gray-500 text-sm">${r.monitor_date}</span>
+        <span class="ml-2 text-sm text-gray-600">担当: ${r.counselor_name||"-"}</span>
+      </div>
+      <div class="flex gap-2">
+        <button onclick='editMonReport(${r.id})' class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200">編集</button>
+        <a href="/keikaku/api/forms/monitoring/${r.id}?token=${token}" target="_blank" class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200">PDF</a>
+      </div>
+    </div>
+    <div class="text-sm text-gray-600 mt-1">達成度: ${r.goal_achievement} / 次回: ${r.next_monitoring||"-"}</div>
+  </div>`).join("");
 }
-
-function openGridEditor(){
-  buildGridTable();
-  document.getElementById("grid-overview").value=_gridData.overview||"";
-  document.getElementById("grid-non-weekly").value=_gridData.non_weekly||"";
-  loadWeeklyTemplates();
-  openModal("modal-grid");
-}
-
-function buildGridTable(){
-  const tbody=document.getElementById("grid-tbody");
-  let html="";
-  for(const h of _gridHours){
-    const label=("0"+h).slice(-2)+":00";
-    html+=`<tr><td class="border border-gray-300 bg-gray-100 text-center font-bold px-1 py-1 text-xs align-top" style="white-space:nowrap">${label}</td>`;
-    for(const d of _gridDays){
-      const key="h"+h+"_"+d;
-      const val=(_gridData.cells&&_gridData.cells[key])||"";
-      html+=`<td class="border border-gray-300 p-0" style="min-width:60px"><textarea class="grid-cell w-full text-xs p-1 resize-none" data-key="${key}" style="border:none;min-height:58px;height:58px;padding-right:38px">${val.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</textarea></td>`;
-    }
-    html+="</tr>";
-  }
-  tbody.innerHTML=html;
-  // マイクボタン: hover/focus時のみ表示
-  setTimeout(function(){
-    tbody.querySelectorAll("div > button").forEach(function(btn){
-      btn.style.opacity="0";
-      btn.style.transition="opacity 0.15s";
-      var wrapper=btn.parentElement;
-      var ta=btn.previousElementSibling;
-      wrapper.addEventListener("mouseenter",function(){btn.style.opacity="1";});
-      wrapper.addEventListener("mouseleave",function(){if(document.activeElement!==ta)btn.style.opacity="0";});
-      ta.addEventListener("focus",function(){btn.style.opacity="1";});
-      ta.addEventListener("blur",function(){setTimeout(function(){if(document.activeElement!==btn)btn.style.opacity="0";},150);});
-    });
-  },80);
-}
-
-function saveGridEditor(){
-  _gridData.overview=document.getElementById("grid-overview").value;
-  _gridData.non_weekly=document.getElementById("grid-non-weekly").value;
-  if(!_gridData.cells)_gridData.cells={};
-  document.querySelectorAll(".grid-cell").forEach(el=>{
-    if(el.value.trim())_gridData.cells[el.dataset.key]=el.value;
-    else delete _gridData.cells[el.dataset.key];
-  });
-  updateGridSummary();
-  closeModal("modal-grid");
+async function editMonReport(id){
+  const r=await api("/api/monitoring-reports/"+id).catch(()=>null);
+  if(!r)return;
+  populateClientSelects();
+  document.getElementById("mr-id").value=r.id;
+  document.getElementById("mr-client").value=r.client_id;
+  document.getElementById("mr-date").value=r.monitor_date||"";
+  document.getElementById("mr-visit").value=r.visit_date||"";
+  const coEl=document.getElementById("mr-counselor");if(coEl)coEl.value=r.counselor_id||"";
+  const achEl=document.getElementById("mr-achievement");if(achEl)achEl.value=r.goal_achievement||"partial";
+  const satEl=document.getElementById("mr-satisfaction");if(satEl)satEl.value=r.satisfaction||"normal";
+  document.getElementById("mr-status").value=r.service_status||"";
+  const wishEl=document.getElementById("mr-wishes");if(wishEl)wishEl.value=r.client_wishes||"";
+  document.getElementById("mr-issues").value=r.issues||"";
+  document.getElementById("mr-change").value=r.plan_change||"";
+  document.getElementById("mr-next").value=r.next_monitoring||"";
+  document.getElementById("mr-notes").value=r.notes||"";
+  openModal("modal-mon-report");
 }
 
 async function loadWeeklyTemplates(){
@@ -1027,7 +1004,13 @@ async function deleteTemplate(){
 }
 // ===== END 週間計画グリッド =====
 
-async function saveMonReport(){const id=document.getElementById("mr-id").value;const body={client_id:document.getElementById("mr-client").value,monitor_date:document.getElementById("mr-date").value,visit_date:document.getElementById("mr-visit").value,counselor_id:document.getElementById("mr-counselor").value||null,goal_achievement:document.getElementById("mr-achievement").value,satisfaction:document.getElementById("mr-satisfaction").value,service_status:document.getElementById("mr-status").value,issues:document.getElementById("mr-issues").value,plan_change:document.getElementById("mr-change").value,next_monitoring:document.getElementById("mr-next").value,notes:document.getElementById("mr-notes").value};if(id)await api("/api/monitoring-reports/"+id,"PUT",body);else await api("/api/monitoring-reports","POST",body);closeModal("modal-mon-report");loadMonReports();}
+async function saveMonReport(){
+  const id=document.getElementById("mr-id").value;
+  const wishesEl=document.getElementById("mr-wishes");
+  const body={client_id:document.getElementById("mr-client").value,monitor_date:document.getElementById("mr-date").value,visit_date:document.getElementById("mr-visit").value,counselor_id:document.getElementById("mr-counselor").value||null,goal_achievement:document.getElementById("mr-achievement").value,satisfaction:document.getElementById("mr-satisfaction")?document.getElementById("mr-satisfaction").value:"normal",service_status:document.getElementById("mr-status").value,issues:document.getElementById("mr-issues").value,plan_change:document.getElementById("mr-change").value,next_monitoring:document.getElementById("mr-next").value,notes:document.getElementById("mr-notes").value,client_wishes:wishesEl?wishesEl.value:""};
+  if(id)await api("/api/monitoring-reports/"+id,"PUT",body);else await api("/api/monitoring-reports","POST",body);
+  closeModal("modal-mon-report");loadMonReports();
+}
 async function loadAssessments(){const data=await api("/api/assessments").catch(e=>[]);const el=document.getElementById("assessments-list");if(!el)return;el.innerHTML=data.length===0?"<p class=text-gray-500>アセスメント未作成</p>":data.map(a=>"<div class=bg-white rounded-lg shadow p-4><div class=flex justify-between><span class=font-bold>"+a.client_name+"</span><span class=text-gray-500 text-sm>"+a.assess_date+"</span></div><div class=text-sm text-gray-600 mt-2>強み: "+a.strengths+"</div></div>").join("");}
 function openAssessModal(){populateClientSelects();document.getElementById("as-date").value=new Date().toISOString().slice(0,10);["as-living","as-daily","as-family","as-social","as-strengths","as-challenges","as-hopes"].forEach(i=>document.getElementById(i).value="");openModal("modal-assessment");}
 async function saveAssessment(){const body={client_id:document.getElementById("as-client").value,assess_date:document.getElementById("as-date").value,living_situation:document.getElementById("as-living").value,daily_life:document.getElementById("as-daily").value,family_support:document.getElementById("as-family").value,social_resources:document.getElementById("as-social").value,strengths:document.getElementById("as-strengths").value,challenges:document.getElementById("as-challenges").value,hopes:document.getElementById("as-hopes").value};await api("/api/assessments","POST",body);closeModal("modal-assessment");loadAssessments();}

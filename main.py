@@ -223,6 +223,7 @@ class MonitoringReportIn(BaseModel):
     plan_change: Optional[str] = "no_change"
     next_monitoring: Optional[str] = ""
     notes: Optional[str] = ""
+    client_wishes: Optional[str] = ""
     submitted_to_city: Optional[int] = 0
 
 class CaseConferenceIn(BaseModel):
@@ -638,11 +639,11 @@ def create_monitoring_report(body: MonitoringReportIn, request: Request):
     try:
         check_active(oid, db)
         db.execute("""INSERT INTO monitoring_reports (office_id,client_id,monitor_date,visit_date,counselor_id,goal_achievement,
-            satisfaction,service_status,issues,plan_change,next_monitoring,notes,submitted_to_city)
-            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+            satisfaction,service_status,issues,plan_change,next_monitoring,notes,submitted_to_city,client_wishes)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (oid,body.client_id,body.monitor_date,body.visit_date,body.counselor_id,
              body.goal_achievement,body.satisfaction,body.service_status,body.issues,
-             body.plan_change,body.next_monitoring,body.notes,body.submitted_to_city))
+             body.plan_change,body.next_monitoring,body.notes,body.submitted_to_city,body.client_wishes or ''))
         if body.next_monitoring:
             db.execute("UPDATE clients SET last_monitoring_date=?, next_monitoring_date=? WHERE id=? AND office_id=?",
                 (body.monitor_date,body.next_monitoring,body.client_id,oid))
@@ -657,11 +658,11 @@ def update_monitoring_report(rid: int, body: MonitoringReportIn, request: Reques
     db = get_db()
     try:
         db.execute("""UPDATE monitoring_reports SET monitor_date=?,visit_date=?,counselor_id=?,goal_achievement=?,satisfaction=?,
-            service_status=?,issues=?,plan_change=?,next_monitoring=?,notes=?,submitted_to_city=?
+            service_status=?,issues=?,plan_change=?,next_monitoring=?,notes=?,submitted_to_city=?,client_wishes=?
             WHERE id=? AND office_id=?""",
             (body.monitor_date,body.visit_date,body.counselor_id,body.goal_achievement,body.satisfaction,
              body.service_status,body.issues,body.plan_change,body.next_monitoring,body.notes,
-             body.submitted_to_city,rid,oid))
+             body.submitted_to_city,body.client_wishes or '',rid,oid))
         db.commit()
         return {"ok":True}
     finally:
@@ -2156,13 +2157,13 @@ def form_monitoring(report_id: int, request: Request, token: Optional[str]=None)
 </table>
 
 <h2>利用者及び家族の生活に対する意向</h2>
-<div class="box" style="min-height:30px">&nbsp;</div>
+<div class="box" style="min-height:40px;white-space:pre-wrap">{{rep.get('client_wishes','') or ''}}</div>
 
 <h2>生活全般の解決すべき課題（ニーズ）</h2>
 <div class="box">{{rep.get('issues','') or ''}}</div>
 
 <h2>今後の課題・解決方法、留意事項</h2>
-<div class="box">{{plan_change or ''}}</div>
+<div class="box">{{rep.get('notes','') or ''}}</div>
 
 <table style="margin-top:4px">
   <tr>

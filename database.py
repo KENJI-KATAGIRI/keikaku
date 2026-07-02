@@ -335,6 +335,12 @@ def init_db():
             conn.commit()
         except Exception:
             pass
+    # client_wishes migration (モニタリング報告書)
+    try:
+        conn.execute("ALTER TABLE monitoring_reports ADD COLUMN client_wishes TEXT DEFAULT ''")
+        conn.commit()
+    except Exception:
+        pass
     # weekly_templates テーブル
     conn.execute("""
     CREATE TABLE IF NOT EXISTS weekly_templates (
@@ -349,6 +355,12 @@ def init_db():
     # weekly_grid_json migration
     try:
         conn.execute("ALTER TABLE service_plans ADD COLUMN weekly_grid_json TEXT DEFAULT '{}'")
+        conn.commit()
+    except Exception:
+        pass
+    # client_wishes migration (モニタリング報告書)
+    try:
+        conn.execute("ALTER TABLE monitoring_reports ADD COLUMN client_wishes TEXT DEFAULT ''")
         conn.commit()
     except Exception:
         pass
