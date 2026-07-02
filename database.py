@@ -335,4 +335,38 @@ def init_db():
             conn.commit()
         except Exception:
             pass
+    # weekly_templates テーブル
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS weekly_templates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        office_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        grid_json TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now','localtime'))
+    );
+    """)
+    conn.commit()
+    # weekly_grid_json migration
+    try:
+        conn.execute("ALTER TABLE service_plans ADD COLUMN weekly_grid_json TEXT DEFAULT '{}'")
+        conn.commit()
+    except Exception:
+        pass
+    # weekly_templates テーブル
+    conn.execute("""
+    CREATE TABLE IF NOT EXISTS weekly_templates (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        office_id INTEGER NOT NULL,
+        name TEXT NOT NULL,
+        grid_json TEXT DEFAULT '{}',
+        created_at TEXT DEFAULT (datetime('now','localtime'))
+    );
+    """)
+    conn.commit()
+    # weekly_grid_json migration
+    try:
+        conn.execute("ALTER TABLE service_plans ADD COLUMN weekly_grid_json TEXT DEFAULT '{}'")
+        conn.commit()
+    except Exception:
+        pass
     conn.close()

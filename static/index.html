@@ -600,12 +600,65 @@ label{font-size:13px;font-weight:600;color:#374151;margin-bottom:4px;display:blo
       <div><label class="text-sm font-medium">長期目標</label><textarea id="sp-long-goal" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
       <div><label class="text-sm font-medium">短期目標</label><textarea id="sp-short-goal" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
       <div><label class="text-sm font-medium">支援方針</label><textarea id="sp-policy" class="w-full border rounded px-3 py-2 mt-1" rows="2"></textarea></div>
-      <div><label class="text-sm font-medium">週間スケジュール</label><textarea id="sp-weekly" class="w-full border rounded px-3 py-2 mt-1" rows="3"></textarea></div>
+      <div>
+        <label class="text-sm font-medium">生活の全体像・週間計画</label>
+        <div class="mt-1 flex items-center gap-2">
+          <span id="sp-grid-summary" class="text-xs text-gray-500 flex-1">（グリッド未設定）</span>
+          <button type="button" onclick="openGridEditor()" class="bg-blue-500 text-white px-3 py-1 rounded text-sm">グリッドを編集</button>
+        </div>
+      </div>
     </div>
     <input type="hidden" id="sp-id" value="">
+    <input type="hidden" id="sp-weekly" value="">
     <div class="flex gap-3 mt-4">
       <button onclick="savePlan()" class="flex-1 bg-purple-600 text-white py-2 rounded-lg">保存</button>
       <button onclick="closeModal('modal-plan')" class="flex-1 bg-gray-200 py-2 rounded-lg">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- 週間計画グリッドエディタ Modal -->
+<div id="modal-grid" class="modal items-start justify-center" style="overflow-y:auto">
+  <div class="bg-white rounded-2xl shadow-2xl p-4 m-2" style="max-width:960px;width:100%">
+    <h3 class="text-lg font-bold mb-3">週間計画グリッド編集</h3>
+    <div class="mb-3">
+      <label class="text-sm font-medium text-gray-700">サービス提供によって実現する生活の全体像</label>
+      <textarea id="grid-overview" class="w-full border rounded px-3 py-2 mt-1 text-sm" rows="2" placeholder="例：施設入所支援・就労継続支援B型を利用しながら..."></textarea>
+    </div>
+    <div class="flex flex-wrap gap-2 mb-3 items-center bg-gray-50 p-2 rounded">
+      <span class="text-sm font-medium text-gray-600">テンプレート:</span>
+      <select id="grid-template-sel" class="border rounded px-2 py-1 text-sm" style="min-width:180px">
+        <option value="">-- 選択してください --</option>
+      </select>
+      <button type="button" onclick="applyTemplate()" class="bg-blue-500 text-white px-3 py-1 rounded text-sm">適用</button>
+      <button type="button" onclick="saveAsTemplate()" class="bg-green-600 text-white px-3 py-1 rounded text-sm">名前をつけて保存</button>
+      <button type="button" onclick="deleteTemplate()" class="bg-red-500 text-white px-3 py-1 rounded text-sm">削除</button>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="border-collapse text-xs" style="width:100%;table-layout:fixed">
+        <thead>
+          <tr class="bg-gray-200">
+            <th class="border border-gray-400 px-1 py-1 text-center" style="width:44px">時間</th>
+            <th class="border border-gray-400 px-1 py-1 text-center">月</th>
+            <th class="border border-gray-400 px-1 py-1 text-center">火</th>
+            <th class="border border-gray-400 px-1 py-1 text-center">水</th>
+            <th class="border border-gray-400 px-1 py-1 text-center">木</th>
+            <th class="border border-gray-400 px-1 py-1 text-center">金</th>
+            <th class="border border-gray-400 px-1 py-1 text-center">土</th>
+            <th class="border border-gray-400 px-1 py-1 text-center">日・祝</th>
+            <th class="border border-gray-400 px-1 py-1 text-center">主な活動</th>
+          </tr>
+        </thead>
+        <tbody id="grid-tbody"></tbody>
+      </table>
+    </div>
+    <div class="mt-3">
+      <label class="text-sm font-medium text-gray-700">週単位以外のサービス</label>
+      <textarea id="grid-non-weekly" class="w-full border rounded px-3 py-2 mt-1 text-sm" rows="2" placeholder="月1回 医療機関受診、年2回 日帰り旅行 等"></textarea>
+    </div>
+    <div class="flex gap-3 mt-4">
+      <button type="button" onclick="saveGridEditor()" class="flex-1 bg-purple-600 text-white py-2 rounded-lg font-medium">グリッドを確定</button>
+      <button type="button" onclick="closeModal('modal-grid')" class="flex-1 bg-gray-200 py-2 rounded-lg">キャンセル</button>
     </div>
   </div>
 </div>
@@ -813,11 +866,154 @@ function openCounselorModal(id=null){document.getElementById("co-id").value=id||
 async function saveCounselor(){const id=document.getElementById("co-id").value;const body={name:document.getElementById("co-name").value,kana:document.getElementById("co-kana").value,cert_acquired:document.getElementById("co-cert").value,cert_next_renewal:document.getElementById("co-renewal").value,is_chief:document.getElementById("co-chief").checked?1:0};if(id)await api("/api/counselors/"+id,"PUT",body);else await api("/api/counselors","POST",body);closeModal("modal-counselor");loadCounselors();}
 function editCounselor(id){openCounselorModal(id);}
 async function deleteCounselor(id){if(!confirm("削除しますか？"))return;await api("/api/counselors/"+id,"DELETE");loadCounselors();}
-async function loadPlans(){const data=await api("/api/service-plans").catch(e=>[]);const el=document.getElementById("plans-list");if(!el)return;el.innerHTML=data.length===0?"<p class=text-gray-500>計画書未作成</p>":data.map(p=>"<div class=bg-white rounded-lg shadow p-4><div class=flex justify-between items-center><div><span class=font-bold>"+p.client_name+"</span><span class=ml-2 text-gray-500 text-sm>"+p.created_date+"</span><span class=ml-2 bg-purple-100 text-purple-700 text-xs px-2 rounded>"+p.plan_type+"</span></div></div><div class=text-sm text-gray-600 mt-2>長期目標: "+p.long_term_goal+"</div></div>").join("");}
-function openPlanModal(){populateClientSelects();document.getElementById("sp-id").value="";document.getElementById("sp-date").value=new Date().toISOString().slice(0,10);["sp-long-goal","sp-short-goal","sp-policy","sp-weekly"].forEach(i=>document.getElementById(i).value="");document.getElementById("sp-type").value="draft";openModal("modal-plan");}
-async function savePlan(){const id=document.getElementById("sp-id").value;const body={client_id:document.getElementById("sp-client").value,plan_type:document.getElementById("sp-type").value,created_date:document.getElementById("sp-date").value,long_term_goal:document.getElementById("sp-long-goal").value,short_term_goal:document.getElementById("sp-short-goal").value,support_policy:document.getElementById("sp-policy").value,weekly_schedule:document.getElementById("sp-weekly").value};if(id)await api("/api/service-plans/"+id,"PUT",body);else await api("/api/service-plans","POST",body);closeModal("modal-plan");loadPlans();}
+async function loadPlans(){
+  const data=await api("/api/service-plans").catch(e=>[]);
+  const el=document.getElementById("plans-list");
+  if(!el)return;
+  if(data.length===0){el.innerHTML="<p class='text-gray-500'>計画書未作成</p>";return;}
+  el.innerHTML=data.map(p=>`<div class="bg-white rounded-lg shadow p-4">
+    <div class="flex justify-between items-center">
+      <div>
+        <span class="font-bold">${p.client_name}</span>
+        <span class="ml-2 text-gray-500 text-sm">${p.created_date}</span>
+        <span class="ml-2 bg-purple-100 text-purple-700 text-xs px-2 rounded">${p.plan_type}</span>
+      </div>
+      <div class="flex gap-2">
+        <button onclick='editPlan(${p.id})' class="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded hover:bg-blue-200">編集</button>
+        <a href="/form/service-plan/${p.id}" target="_blank" class="text-xs bg-green-100 text-green-700 px-2 py-1 rounded hover:bg-green-200">PDF</a>
+      </div>
+    </div>
+    <div class="text-sm text-gray-600 mt-2">長期目標: ${p.long_term_goal||"（未入力）"}</div>
+  </div>`).join("");
+}
+async function editPlan(id){
+  const p=await api("/api/service-plans/"+id).catch(()=>null);
+  if(!p)return;
+  openPlanModal(p);
+}
+function openPlanModal(existingPlan){
+  populateClientSelects();
+  if(existingPlan){
+    document.getElementById("sp-id").value=existingPlan.id||"";
+    document.getElementById("sp-client").value=existingPlan.client_id||"";
+    document.getElementById("sp-date").value=existingPlan.created_date||"";
+    document.getElementById("sp-type").value=existingPlan.plan_type||"draft";
+    document.getElementById("sp-long-goal").value=existingPlan.long_term_goal||"";
+    document.getElementById("sp-short-goal").value=existingPlan.short_term_goal||"";
+    document.getElementById("sp-policy").value=existingPlan.support_policy||"";
+    try{_gridData=JSON.parse(existingPlan.weekly_grid_json||"{}");}catch(e){_gridData={overview:"",non_weekly:"",cells:{}};}
+  } else {
+    document.getElementById("sp-id").value="";
+    document.getElementById("sp-date").value=new Date().toISOString().slice(0,10);
+    ["sp-long-goal","sp-short-goal","sp-policy"].forEach(i=>document.getElementById(i).value="");
+    document.getElementById("sp-type").value="draft";
+    _gridData={overview:"",non_weekly:"",cells:{}};
+  }
+  updateGridSummary();
+  openModal("modal-plan");
+}
+async function savePlan(){
+  const id=document.getElementById("sp-id").value;
+  const body={client_id:document.getElementById("sp-client").value,plan_type:document.getElementById("sp-type").value,created_date:document.getElementById("sp-date").value,long_term_goal:document.getElementById("sp-long-goal").value,short_term_goal:document.getElementById("sp-short-goal").value,support_policy:document.getElementById("sp-policy").value,weekly_schedule:_gridData.overview||"",weekly_grid_json:JSON.stringify(_gridData)};
+  if(id)await api("/api/service-plans/"+id,"PUT",body);else await api("/api/service-plans","POST",body);
+  closeModal("modal-plan");loadPlans();
+}
 async function loadMonReports(){const data=await api("/api/monitoring-reports").catch(e=>[]);const el=document.getElementById("monitoring-reports-list");if(!el)return;el.innerHTML=data.length===0?"<p class=text-gray-500>報告書未作成</p>":data.map(r=>"<div class=bg-white rounded-lg shadow p-4><div class=flex justify-between><div><span class=font-bold>"+r.client_name+"</span><span class=ml-2 text-gray-500 text-sm>"+r.monitor_date+"</span></div><span class=text-sm>担当: "+( r.counselor_name||"-")+"</span></div><div class=text-sm text-gray-600 mt-2>達成度: "+r.goal_achievement+" / 次回: "+( r.next_monitoring||"-")+"</div></div>").join("");}
 function openMonReportModal(){populateClientSelects();document.getElementById("mr-id").value="";document.getElementById("mr-date").value=new Date().toISOString().slice(0,10);["mr-status","mr-issues","mr-notes"].forEach(i=>document.getElementById(i).value="");openModal("modal-mon-report");}
+// ===== 週間計画グリッドエディタ =====
+let _gridData={overview:"",non_weekly:"",cells:{}};
+const _gridHours=[6,8,10,12,14,16,18,20,22,0,2,4];
+const _gridDays=["月","火","水","木","金","土","日・祝","活動"];
+
+function updateGridSummary(){
+  const cells=_gridData.cells||{};
+  const count=Object.values(cells).filter(v=>v&&v.trim()).length;
+  const ov=_gridData.overview||"";
+  const summary=ov?ov.slice(0,20)+(ov.length>20?"...":""):"";
+  document.getElementById("sp-grid-summary").textContent=count>0?(summary||"入力済み")+" ("+count+"セル入力済み)":"（グリッド未設定）";
+}
+
+function openGridEditor(){
+  buildGridTable();
+  document.getElementById("grid-overview").value=_gridData.overview||"";
+  document.getElementById("grid-non-weekly").value=_gridData.non_weekly||"";
+  loadWeeklyTemplates();
+  openModal("modal-grid");
+}
+
+function buildGridTable(){
+  const tbody=document.getElementById("grid-tbody");
+  let html="";
+  for(const h of _gridHours){
+    const label=("0"+h).slice(-2)+":00";
+    html+=`<tr><td class="border border-gray-300 bg-gray-100 text-center font-bold px-1 py-1 text-xs align-top" style="white-space:nowrap">${label}</td>`;
+    for(const d of _gridDays){
+      const key="h"+h+"_"+d;
+      const val=(_gridData.cells&&_gridData.cells[key])||"";
+      html+=`<td class="border border-gray-300 p-0" style="min-width:60px"><textarea class="grid-cell w-full text-xs p-1 resize-none" rows="2" data-key="${key}" style="border:none;min-height:36px;height:36px">${val.replace(/</g,"&lt;").replace(/>/g,"&gt;")}</textarea></td>`;
+    }
+    html+="</tr>";
+  }
+  tbody.innerHTML=html;
+}
+
+function saveGridEditor(){
+  _gridData.overview=document.getElementById("grid-overview").value;
+  _gridData.non_weekly=document.getElementById("grid-non-weekly").value;
+  if(!_gridData.cells)_gridData.cells={};
+  document.querySelectorAll(".grid-cell").forEach(el=>{
+    if(el.value.trim())_gridData.cells[el.dataset.key]=el.value;
+    else delete _gridData.cells[el.dataset.key];
+  });
+  updateGridSummary();
+  closeModal("modal-grid");
+}
+
+async function loadWeeklyTemplates(){
+  const templates=await api("/api/weekly-templates").catch(()=>[]);
+  const sel=document.getElementById("grid-template-sel");
+  sel.innerHTML="<option value=''>-- 選択してください --</option>"+
+    templates.map(t=>`<option value="${t.id}" data-grid='${JSON.stringify(JSON.parse(t.grid_json||"{}")).replace(/'/g,"&#39;")}'>${t.name}</option>`).join("");
+}
+
+function applyTemplate(){
+  const sel=document.getElementById("grid-template-sel");
+  const opt=sel.options[sel.selectedIndex];
+  if(!opt||!opt.value)return;
+  try{
+    _gridData=JSON.parse(opt.getAttribute("data-grid")||"{}");
+    if(!_gridData.cells)_gridData.cells={};
+    buildGridTable();
+    document.getElementById("grid-overview").value=_gridData.overview||"";
+    document.getElementById("grid-non-weekly").value=_gridData.non_weekly||"";
+  }catch(e){alert("テンプレートの読み込みに失敗しました");}
+}
+
+async function saveAsTemplate(){
+  const name=prompt("テンプレート名を入力してください（例：就労B型 通所5日/週）");
+  if(!name)return;
+  _gridData.overview=document.getElementById("grid-overview").value;
+  _gridData.non_weekly=document.getElementById("grid-non-weekly").value;
+  if(!_gridData.cells)_gridData.cells={};
+  document.querySelectorAll(".grid-cell").forEach(el=>{
+    if(el.value.trim())_gridData.cells[el.dataset.key]=el.value;
+    else delete _gridData.cells[el.dataset.key];
+  });
+  await api("/api/weekly-templates","POST",{name,grid_json:JSON.stringify(_gridData)});
+  await loadWeeklyTemplates();
+  alert("テンプレート「"+name+"」を保存しました");
+}
+
+async function deleteTemplate(){
+  const sel=document.getElementById("grid-template-sel");
+  if(!sel.value){alert("削除するテンプレートを選択してください");return;}
+  const name=sel.options[sel.selectedIndex].text;
+  if(!confirm("「"+name+"」を削除しますか？"))return;
+  await api("/api/weekly-templates/"+sel.value,"DELETE");
+  await loadWeeklyTemplates();
+}
+// ===== END 週間計画グリッド =====
+
 async function saveMonReport(){const id=document.getElementById("mr-id").value;const body={client_id:document.getElementById("mr-client").value,monitor_date:document.getElementById("mr-date").value,visit_date:document.getElementById("mr-visit").value,counselor_id:document.getElementById("mr-counselor").value||null,goal_achievement:document.getElementById("mr-achievement").value,satisfaction:document.getElementById("mr-satisfaction").value,service_status:document.getElementById("mr-status").value,issues:document.getElementById("mr-issues").value,plan_change:document.getElementById("mr-change").value,next_monitoring:document.getElementById("mr-next").value,notes:document.getElementById("mr-notes").value};if(id)await api("/api/monitoring-reports/"+id,"PUT",body);else await api("/api/monitoring-reports","POST",body);closeModal("modal-mon-report");loadMonReports();}
 async function loadAssessments(){const data=await api("/api/assessments").catch(e=>[]);const el=document.getElementById("assessments-list");if(!el)return;el.innerHTML=data.length===0?"<p class=text-gray-500>アセスメント未作成</p>":data.map(a=>"<div class=bg-white rounded-lg shadow p-4><div class=flex justify-between><span class=font-bold>"+a.client_name+"</span><span class=text-gray-500 text-sm>"+a.assess_date+"</span></div><div class=text-sm text-gray-600 mt-2>強み: "+a.strengths+"</div></div>").join("");}
 function openAssessModal(){populateClientSelects();document.getElementById("as-date").value=new Date().toISOString().slice(0,10);["as-living","as-daily","as-family","as-social","as-strengths","as-challenges","as-hopes"].forEach(i=>document.getElementById(i).value="");openModal("modal-assessment");}

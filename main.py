@@ -206,6 +206,7 @@ class ServicePlanIn(BaseModel):
     short_term_goal: Optional[str] = ""
     support_policy: Optional[str] = ""
     weekly_schedule: Optional[str] = ""
+    weekly_grid_json: Optional[str] = "{}"
     services: Optional[str] = "[]"
     notes: Optional[str] = ""
     version: Optional[int] = 1
@@ -543,10 +544,10 @@ def create_service_plan(body: ServicePlanIn, request: Request):
     try:
         check_active(oid, db)
         db.execute("""INSERT INTO service_plans (office_id,client_id,plan_type,created_date,approved_date,long_term_goal,
-            short_term_goal,support_policy,weekly_schedule,services,notes,version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+            short_term_goal,support_policy,weekly_schedule,weekly_grid_json,services,notes,version) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)""",
             (oid,body.client_id,body.plan_type,body.created_date,body.approved_date,
              body.long_term_goal,body.short_term_goal,body.support_policy,body.weekly_schedule,
-             body.services,body.notes,body.version))
+             body.weekly_grid_json or '{}',body.services,body.notes,body.version))
         db.commit()
         return {"ok":True}
     finally:
@@ -569,11 +570,50 @@ def update_service_plan(pid: int, body: ServicePlanIn, request: Request):
     db = get_db()
     try:
         db.execute("""UPDATE service_plans SET plan_type=?,created_date=?,approved_date=?,long_term_goal=?,short_term_goal=?,
-            support_policy=?,weekly_schedule=?,services=?,notes=?,version=? WHERE id=? AND office_id=?""",
+            support_policy=?,weekly_schedule=?,weekly_grid_json=?,services=?,notes=?,version=? WHERE id=? AND office_id=?""",
             (body.plan_type,body.created_date,body.approved_date,body.long_term_goal,body.short_term_goal,
-             body.support_policy,body.weekly_schedule,body.services,body.notes,body.version,pid,oid))
+             body.support_policy,body.weekly_schedule,body.weekly_grid_json or '{}',
+             body.services,body.notes,body.version,pid,oid))
         db.commit()
         return {"ok":True}
+    finally:
+        db.close()
+
+# ===== 週間計画テンプレート =====
+class WeeklyTemplateIn(BaseModel):
+    name: str
+    grid_json: Optional[str] = "{}"
+
+@app.get("/api/weekly-templates")
+def list_weekly_templates(request: Request):
+    oid = current_office(request)
+    db = get_db()
+    try:
+        rows = db.execute("SELECT * FROM weekly_templates WHERE office_id=? ORDER BY created_at DESC", (oid,)).fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        db.close()
+
+@app.post("/api/weekly-templates")
+def create_weekly_template(body: WeeklyTemplateIn, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    try:
+        db.execute("INSERT INTO weekly_templates (office_id,name,grid_json) VALUES (?,?,?)",
+                   (oid, body.name, body.grid_json or '{}'))
+        db.commit()
+        return {"ok": True}
+    finally:
+        db.close()
+
+@app.delete("/api/weekly-templates/{tid}")
+def delete_weekly_template(tid: int, request: Request):
+    oid = current_office(request)
+    db = get_db()
+    try:
+        db.execute("DELETE FROM weekly_templates WHERE id=? AND office_id=?", (tid, oid))
+        db.commit()
+        return {"ok": True}
     finally:
         db.close()
 
@@ -1835,19 +1875,38 @@ def form_service_plan(plan_id: int, request: Request, token: Optional[str]=None)
         chk(plan.get('disability_type')=='developmental','発達'),
         chk(plan.get('disability_type')=='other','難病等その他'),
     ])
-    # 週間計画表（6:00〜翌4:00 × 月〜祝）
-    time_slots = []
-    for h in range(6, 24):
-        time_slots.append(f"{h:02d}:00")
-    for h in range(0, 5):
-        time_slots.append(f"翌{h:02d}:00")
-    days = ["月","火","水","木","金","土","日","祝"]
+    # 週間計画表: グリッドJSON → PDF反映
+    import json as _json
+    _grid = {}
+    try: _grid = _json.loads(plan.get('weekly_grid_json','{}') or '{}')
+    except: pass
+    _cells = _grid.get('cells', {})
+    _overview = _grid.get('overview', '') or plan.get('weekly_schedule','') or ''
+    _non_weekly = _grid.get('non_weekly', '')
+    label_hours = {6,8,10,12,14,16,18,20,22,0,2,4}
+    all_hours = list(range(6,24)) + list(range(0,6))
+    weekdays = ["月","火","水","木","金","土","日・祝"]
+    def _c(h,d):
+        v = _cells.get(f"h{h}_{d}",'')
+        return v.replace('&','&amp;').replace('<','&lt;').replace('>','&gt;').replace(chr(10),'<br>') if v else '&nbsp;'
     week_rows = ""
-    for t in time_slots:
-        week_rows += f"<tr><td style='background:#f5f5f5;font-size:8pt;white-space:nowrap;padding:1px 3px'>{t}</td>"
-        for _ in days:
-            week_rows += "<td style='min-width:28px;padding:2px'>&nbsp;</td>"
+    for h in all_hours:
+        is_label = h in label_hours
+        label = f"{h:02d}:00" if is_label else ""
+        bg = "background:#f5f5f5;" if is_label else ""
+        fw = "font-weight:600;" if is_label else ""
+        row_h = "min-height:20px;" if is_label else "height:6px;"
+        week_rows += f"<tr style='{row_h}'><td style='{bg}{fw}font-size:8pt;white-space:nowrap;padding:1px 3px;width:38px;vertical-align:top'>{label}</td>"
+        if is_label:
+            for d in weekdays:
+                week_rows += f"<td style='font-size:7.5pt;padding:2px;vertical-align:top'>{_c(h,d)}</td>"
+            week_rows += f"<td style='font-size:7.5pt;padding:2px;vertical-align:top;min-width:70px'>{_c(h,'活動')}</td>"
+        else:
+            for _ in range(8):
+                week_rows += "<td style='border-top:none'></td>"
         week_rows += "</tr>"
+    week_rows += f"<tr style='background:#e8e8e8'><td colspan='9' style='font-size:8pt;font-weight:700;padding:3px 6px'>週単位以外のサービス</td></tr>"
+    week_rows += f"<tr><td colspan='9' style='padding:4px;font-size:8.5pt;white-space:pre-wrap'>{_non_weekly.replace('&','&amp;').replace('<','&lt;') if _non_weekly else '&nbsp;'}</td></tr>"
     services_text = plan.get("services","") or ""
     html = f"""<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
 <title>サービス等利用計画書 - {{plan['client_name']}}</title>
@@ -1947,23 +2006,45 @@ def form_service_plan(plan_id: int, request: Request, token: Optional[str]=None)
 
 <!-- ===== 週間計画表 ===== -->
 <div class="page-break"></div>
-<h1>週間計画表</h1>
-<p style="font-size:8pt;margin-bottom:6px">利用者氏名：<strong>{{plan['client_name']}}</strong>　　作成日：{{plan['created_date'] or today}}</p>
-<table style="font-size:8.5pt">
+<h1>サービス等利用計画案・障害児支援利用計画案【週間計画表】</h1>
+<table style="font-size:8.5pt;margin-bottom:6px">
+  <tr>
+    <th style="width:22%">利用者氏名</th><td><strong>{{plan['client_name']}}</strong></td>
+    <th style="width:18%">障害支援区分</th><td>{{plan.get('disability_level','')}}</td>
+    <th style="width:18%">利用者負担額上限</th><td>&nbsp;</td>
+  </tr>
+  <tr>
+    <th>障害福祉サービス受給者証番号</th><td>{{plan.get('jukyusha_no','')}}</td>
+    <th>計画開始年月</th><td>{{(plan.get('created_date') or '')[:7]}}</td>
+    <th>相談支援事業者名</th><td>{{office['office_name'] if office else ''}}</td>
+  </tr>
+  <tr>
+    <th>地域相談支援受給者証番号</th><td>&nbsp;</td>
+    <th>通所受給者証番号</th><td>&nbsp;</td>
+    <th>計画作成担当者</th><td>{{plan.get('counselor_name','')}}</td>
+  </tr>
+</table>
+<div style="font-size:8.5pt;font-weight:700;background:#ddd;padding:3px 6px;margin:4px 0 2px">サービス提供によって実現する生活の全体像</div>
+<div style="border:1px solid #555;min-height:36px;padding:4px;font-size:8.5pt;margin-bottom:6px;white-space:pre-wrap">{{{_overview}}}</div>
+<table style="font-size:8pt">
   <thead>
     <tr style="background:#ddd">
-      <th style="width:45px">時間</th>
-      {"".join(f"<th style='text-align:center'>{d}</th>" for d in {repr(days)[1:-1]})}
+      <th style="width:38px">時間</th>
+      <th style="text-align:center">月</th><th style="text-align:center">火</th>
+      <th style="text-align:center">水</th><th style="text-align:center">木</th>
+      <th style="text-align:center">金</th><th style="text-align:center">土</th>
+      <th style="text-align:center">日・祝</th>
+      <th>主な日常生活上の活動</th>
     </tr>
   </thead>
   <tbody>
     {week_rows}
   </tbody>
 </table>
-<p style="font-size:8pt;margin-top:6px">※週間スケジュール備考：{{plan.get('weekly_schedule','') or '（未入力）'}}</p>
 
-<div class="sign-row" style="margin-top:16px">
+<div class="sign-row" style="margin-top:12px">
   <div class="sign-block">相談支援事業所名：{{office['office_name'] if office else ''}}</div>
+  <div class="sign-block">担当者：{{plan.get('counselor_name','')}}</div>
   <div class="sign-block">利用者同意&nbsp;署名又は捺印：<span class="sign-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
   <div class="sign-block">日付：<span class="sign-line">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
 </div>
