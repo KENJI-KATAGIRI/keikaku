@@ -939,6 +939,19 @@ async function loadMonReports(){
     <div class="text-sm text-gray-600 mt-1">達成度: ${r.goal_achievement} / 次回: ${r.next_monitoring||"-"}</div>
   </div>`).join("");
 }
+function openMonReportModal(){
+  populateClientSelects();
+  document.getElementById("mr-id").value="";
+  document.getElementById("mr-client").value="";
+  document.getElementById("mr-date").value=new Date().toISOString().slice(0,10);
+  document.getElementById("mr-visit").value="";
+  const coEl=document.getElementById("mr-counselor");if(coEl)coEl.value="";
+  const achEl=document.getElementById("mr-achievement");if(achEl)achEl.value="partial";
+  const satEl=document.getElementById("mr-satisfaction");if(satEl)satEl.value="normal";
+  ["mr-status","mr-wishes","mr-issues","mr-change","mr-notes"].forEach(i=>{const el=document.getElementById(i);if(el)el.value="";});
+  document.getElementById("mr-next").value="";
+  openModal("modal-mon-report");
+}
 async function editMonReport(id){
   const r=await api("/api/monitoring-reports/"+id).catch(()=>null);
   if(!r)return;
